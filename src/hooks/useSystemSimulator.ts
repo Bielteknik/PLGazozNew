@@ -84,7 +84,8 @@ const INITIAL_STATE: SystemData = {
     averageBpm: 0,
     lastCycleDurationMs: 0,
     totalBottlesToday: 0,
-    efficiencyPercent: 0
+    efficiencyPercent: 0,
+    currentDistance: 0
   }
 };
 
@@ -163,11 +164,20 @@ export function useSystemSimulator() {
       }));
     };
 
+    const handleDistanceUpdate = (payload: { value: number }) => {
+       setData(p => ({
+          ...p,
+          metrics: { ...p.metrics, currentDistance: payload.value }
+       }));
+    };
+
     socket.on('SENSOR_STATES', handleSensorStates);
+    socket.on('DISTANCE_UPDATE', handleDistanceUpdate);
     socket.on('connect', () => console.log('Backend connected'));
 
     return () => {
       socket.off('SENSOR_STATES', handleSensorStates);
+      socket.off('DISTANCE_UPDATE', handleDistanceUpdate);
       socket.off('connect');
     };
   }, []);

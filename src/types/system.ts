@@ -17,6 +17,7 @@ export interface SystemMetrics {
   lastCycleDurationMs: number;
   totalBottlesToday: number;
   efficiencyPercent: number;
+  currentDistance: number; // Tank seviyesi veya şişe mesafesi
 }
 
 export interface ValveState {

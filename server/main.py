@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import socketio
 from hardware import hw
 from database import db
+from sensors import sensors
 
 app = FastAPI()
 # Socket.io setup
@@ -86,20 +87,27 @@ async def handle_sync(sid, data):
 async def sensor_worker():
     """Arka planda sensörleri sürekli tarar ve değişiklik olduğunda HMI'a bildirir."""
     last_states = {}
-    # Pinler (HMI'dan gelen konfigürasyona göre dinamikleşecek, şimdilik statik varsayılanlar)
     SENSORS = [17, 27, 22] 
     
     while True:
-        current_states = {}
-        for pin in SENSORS:
-            current_states[pin] = hw.read_sensor(pin)
-        
-        # Sadece değişiklik varsa gönder (Network trafiğini azaltmak için)
-        if current_states != last_states:
-            await sio.emit("SENSOR_STATES", current_states)
-            last_states = current_states.copy()
+        try:
+            # Dijital Sensörler (Lazer)
+            current_states = {}
+            for pin in SENSORS:
+                current_states[pin] = hw.read_sensor(pin)
             
-        await asyncio.sleep(0.05) # 50ms tarama hızı
+            if current_states != last_states:
+                await sio.emit("SENSOR_STATES", current_states)
+                last_states = current_states.copy()
+            
+            # Mesafe Sensörü (Analog/Ultrasonik)
+            distance = sensors.read_distance()
+            await sio.emit("DISTANCE_UPDATE", {"value": distance})
+            
+        except Exception as e:
+            print(f"Sensor Worker Error: {e}")
+            
+        await asyncio.sleep(0.05)
 
 @app.on_event("startup")
 async def startup_event():
