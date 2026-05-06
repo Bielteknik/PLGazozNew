@@ -4,8 +4,9 @@ from hardware import hw
 from database import db
 
 class ProductionManager:
-    def __init__(self, sio):
+    def __init__(self, sio=None):
         self.sio = sio
+        self.callbacks = [] # UI güncellemeleri için callback listesi
         self.mode = "BEKLEMEDE"
         self.state = "BEKLEMEDE"
         self.config = {}
@@ -24,6 +25,9 @@ class ProductionManager:
         saved_config = db.get_config()
         if saved_config:
             self.config = saved_config
+
+    def register_callback(self, callback):
+        self.callbacks.append(callback)
 
     def set_config(self, config):
         self.config = config
@@ -49,7 +53,7 @@ class ProductionManager:
             print("Auto Cycle Started")
 
     async def update(self, sensor_states):
-        """Sensör verileri değiştikçe main.py tarafından çağrılır."""
+        """Sensör verileri değiştikçe main.py veya GUI tarafından çağrılır."""
         
         if self.mode != "OTOMATİK":
             # Manuel modda sadece sayaçları güncelle (test için)
@@ -73,8 +77,6 @@ class ProductionManager:
             if time.time() - self.state_start_time >= (self.config.get('settlingTimeMs', 800) / 1000.0):
                 self.state = "DOLUM"
                 # Valfleri Aç (Aktif olanları)
-                # Not: HMI'dan gelen valf konfigürasyonuna göre açılabilir.
-                # Şimdilik varsayılan 10 valfi açıyoruz.
                 for i in range(1, 11):
                     hw.set_valve("NANO-2", i, True)
                 self.state_start_time = time.time()
@@ -133,9 +135,21 @@ class ProductionManager:
         self.last_sensor_states = sensor_states.copy()
 
     async def broadcast_update(self):
-        await self.sio.emit("PRODUCTION_UPDATE", {
+        data = {
             "state": self.state,
             "inputCount": self.input_count,
             "outputCount": self.output_count,
             "mode": self.mode
-        })
+        }
+        
+        # Socket.IO ile gönder
+        if self.sio:
+            await self.sio.emit("PRODUCTION_UPDATE", data)
+        
+        # Yerel callback'leri tetikle
+        for cb in self.callbacks:
+            if asyncio.iscoroutinefunction(cb):
+                await cb(data)
+            else:
+                cb(data)
+
