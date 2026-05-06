@@ -14,6 +14,8 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isSecurityLocked, setIsSecurityLocked] = useState(false);
   
+  console.log("App Rendering - Tab:", currentTab, "Mode:", data?.mode);
+  
   const {
     data,
     setMode,

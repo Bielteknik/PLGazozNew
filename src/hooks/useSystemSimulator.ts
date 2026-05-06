@@ -173,13 +173,14 @@ export function useSystemSimulator() {
 
 
     const handleProductionUpdate = (payload: any) => {
+       console.log("PRODUCTION_UPDATE received:", payload);
+       if (!payload) return;
        setData(p => ({
           ...p,
-          state: payload.state, // Note: system type has autoState, let's keep consistency
-          autoState: payload.state,
-          inputCount: payload.inputCount,
-          outputCount: payload.outputCount,
-          mode: payload.mode
+          autoState: payload.state || p.autoState,
+          inputCount: payload.inputCount ?? p.inputCount,
+          outputCount: payload.outputCount ?? p.outputCount,
+          mode: payload.mode || p.mode
        }));
     };
 
