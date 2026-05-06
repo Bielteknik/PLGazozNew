@@ -1,11 +1,15 @@
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
 
-console.log("Sistem: main.tsx YUKLENDI!");
+console.log("Sistem: main.tsx baslatildi, App yukleniyor...");
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  rootElement.innerHTML = '<h1 style="color: lime; font-family: sans-serif; padding: 20px;">REAKT MOTORU ÇALIŞIYOR!</h1>';
-  console.log("Sistem: Ekrana yazi basildi.");
-} else {
-  console.error("Sistem: Root bulunamadi!");
+  createRoot(rootElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
 }

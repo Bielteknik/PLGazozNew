@@ -11,6 +11,7 @@ import { Hardware } from './components/views/Hardware';
 import { useSystemSimulator } from './hooks/useSystemSimulator';
 
 export default function App() {
+  console.log("App: Bileşen başlatıldı.");
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isSecurityLocked, setIsSecurityLocked] = useState(false);
   
@@ -57,6 +58,7 @@ export default function App() {
   } = useSystemSimulator();
 
   console.log("App Rendering - Tab:", currentTab, "Mode:", data?.mode);
+  console.log("App: Render aşamasına geçiliyor...");
 
   return (
     <div className="flex h-screen bg-[#0B0D11] text-[#E0E0E0] overflow-hidden font-sans border-4 border-[#1F2937]">
