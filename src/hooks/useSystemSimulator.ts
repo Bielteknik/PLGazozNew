@@ -25,8 +25,8 @@ const INITIAL_STATE: SystemData = {
     pin: `D${i + 2}`
   })),
   nanos: [
-    { id: 'NANO-1', name: 'NANO 1 (KAPILAR)', status: 'ONLINE', pingMs: 12, port: 'COM3', baudRate: 115200 },
-    { id: 'NANO-2', name: 'NANO 2 (VALFLER)', status: 'ONLINE', pingMs: 14, port: 'COM4', baudRate: 115200 }
+    { id: 'NANO-1', name: 'NANO 1 (KAPILAR)', status: 'OFFLINE', pingMs: 0, port: '', baudRate: 115200 },
+    { id: 'NANO-2', name: 'NANO 2 (VALFLER)', status: 'OFFLINE', pingMs: 0, port: '', baudRate: 115200 }
   ],
   sensors: [
     { id: 'SENS-IN', name: 'Giriş Lazer', enabled: true, pin: '17', device: 'RASPI', type: 'INPUT', debounceMs: 50, isTriggered: false },
@@ -112,6 +112,13 @@ export function useSystemSimulator() {
                 valves: newData.valves.filter(v => v.enabled),
                 gates: [newData.inputGate, newData.outputGate, ...newData.extraGates.filter(g => g.enabled)]
              });
+
+             // If we have saved port mappings, send them to backend
+             const savedMapping = localStorage.getItem('plgazoz_port_mapping');
+             if (savedMapping) {
+                socket.emit('SET_PORT_MAPPING', JSON.parse(savedMapping));
+             }
+
              return newData;
           });
        } catch (err) {
@@ -431,7 +438,7 @@ export function useSystemSimulator() {
       
       // Backend'e gönder
       socket.emit('VALVE_CONTROL', { 
-        port: valve.nanoId === 'NANO-2' ? 'COM4' : 'COM3', 
+        port: valve.nanoId || 'NANO-2', 
         id: valve.id, 
         state: newState 
       });
@@ -499,7 +506,7 @@ export function useSystemSimulator() {
         
         // Backend'e gönder
         socket.emit('GATE_CONTROL', { 
-           port: gate.nanoId || 'COM3', 
+           port: gate.nanoId || 'NANO-1', 
            id: target === 'inputGate' ? 1 : 2, 
            pos: position 
         });
@@ -702,6 +709,31 @@ export function useSystemSimulator() {
     });
   }, []);
 
+  const refreshPorts = useCallback(async () => {
+      try {
+         const res = await fetch('http://localhost:8000/ports');
+         const data = await res.json();
+         return data.ports || [];
+      } catch (err) {
+         console.error("Failed to fetch ports", err);
+         return [];
+      }
+  }, []);
+
+  const setPortMapping = useCallback((mapping: Record<string, string>) => {
+      socket.emit('SET_PORT_MAPPING', mapping);
+      localStorage.setItem('plgazoz_port_mapping', JSON.stringify(mapping));
+      
+      // Update nanos status locally to show which port is used
+      setData(p => ({
+          ...p,
+          nanos: p.nanos.map(n => ({
+              ...n,
+              port: mapping[n.id] || n.port
+          }))
+      }));
+  }, []);
+
   const resetCounter = useCallback((target: 'input' | 'output') => {
     setData(p => ({ ...p, [target === 'input' ? 'inputCount' : 'outputCount']: 0 }));
   }, []);
@@ -753,11 +785,11 @@ export function useSystemSimulator() {
       const isCritical = severity === 'CRITICAL';
       
       if (isCritical) {
-        socket.emit('GATE_CONTROL', { port: p.inputGate.nanoId || 'COM3', id: 1, pos: 100 });
-        socket.emit('GATE_CONTROL', { port: p.outputGate.nanoId || 'COM3', id: 2, pos: 100 });
+        socket.emit('GATE_CONTROL', { port: p.inputGate.nanoId || 'NANO-1', id: 1, pos: 100 });
+        socket.emit('GATE_CONTROL', { port: p.outputGate.nanoId || 'NANO-1', id: 2, pos: 100 });
         // Valfleri kapat
         p.valves.forEach(v => {
-           if (v.isOpen) socket.emit('VALVE_CONTROL', { port: v.nanoId || 'COM4', id: v.id, state: false });
+           if (v.isOpen) socket.emit('VALVE_CONTROL', { port: v.nanoId || 'NANO-2', id: v.id, state: false });
         });
       }
 
@@ -832,6 +864,8 @@ export function useSystemSimulator() {
     answerPrompt,
     requestStopAfterCycle,
     toggleEngineerMode,
+    refreshPorts,
+    setPortMapping,
     stopWashing: () => setMode('BEKLEMEDE')
   };
 }

@@ -43,8 +43,8 @@ class ProductionManager:
             self.output_count = 0
             self.state = "GIRIS_SAYILIYOR"
             # Giriş kilit açık, Çıkış kilit kapalı
-            hw.set_gate("COM3", 1, 100) 
-            hw.set_gate("COM3", 2, 0)
+            hw.set_gate("NANO-1", 1, 100) 
+            hw.set_gate("NANO-1", 2, 0)
             await self.broadcast_update()
             print("Auto Cycle Started")
 
@@ -64,7 +64,7 @@ class ProductionManager:
                 
             if self.input_count >= self.config.get('targetCount', 3):
                 self.state = "GIRIS_KILITLI"
-                hw.set_gate("COM3", 1, 0) # Girişi Kapat
+                hw.set_gate("NANO-1", 1, 0) # Girişi Kapat
                 self.state_start_time = time.time()
                 await self.broadcast_update()
 
@@ -76,7 +76,7 @@ class ProductionManager:
                 # Not: HMI'dan gelen valf konfigürasyonuna göre açılabilir.
                 # Şimdilik varsayılan 10 valfi açıyoruz.
                 for i in range(1, 11):
-                    hw.set_valve("COM4", i, True)
+                    hw.set_valve("NANO-2", i, True)
                 self.state_start_time = time.time()
                 await self.broadcast_update()
 
@@ -85,7 +85,7 @@ class ProductionManager:
             if time.time() - self.state_start_time >= (self.config.get('fillTimeMs', 4000) / 1000.0):
                 # Valfleri Kapat
                 for i in range(1, 11):
-                    hw.set_valve("COM4", i, False)
+                    hw.set_valve("NANO-2", i, False)
                 self.state = "DAMLA_BEKLEME"
                 self.state_start_time = time.time()
                 await self.broadcast_update()
@@ -94,7 +94,7 @@ class ProductionManager:
             # Damlama bekleme
             if time.time() - self.state_start_time >= (self.config.get('dripWaitTimeMs', 1200) / 1000.0):
                 self.state = "TAHLIYE"
-                hw.set_gate("COM3", 2, 100) # Çıkışı Aç
+                hw.set_gate("NANO-1", 2, 100) # Çıkışı Aç
                 await self.broadcast_update()
 
         elif self.state == "TAHLIYE":

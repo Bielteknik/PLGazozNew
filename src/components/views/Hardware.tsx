@@ -23,24 +23,28 @@ interface HardwareProps {
   onToggleExtraGateEnabled?: (id: string) => void;
   onAddNano: () => void;
   onRemoveNano: (id: string) => void;
+  onRefreshPorts: () => Promise<any[]>;
+  onSetPortMapping: (mapping: Record<string, string>) => void;
 }
 
-export function Hardware({ data, onAddHardware, onRemoveHardware, onToggleHardwareStatus, onSendNanoCommand, onUpdateNanoConfig, onUpdateValve, onUpdateSensor, onUpdateGate, onUpdateSystemGate, onToggleSensorEnabled, onToggleGateEnabled, onAddSensor, onRemoveSensor, onAddGate, onRemoveGate, onToggleExtraGateEnabled, onAddNano, onRemoveNano }: HardwareProps) {
+export function Hardware({ data, onAddHardware, onRemoveHardware, onToggleHardwareStatus, onSendNanoCommand, onUpdateNanoConfig, onUpdateValve, onUpdateSensor, onUpdateGate, onUpdateSystemGate, onToggleSensorEnabled, onToggleGateEnabled, onAddSensor, onRemoveSensor, onAddGate, onRemoveGate, onToggleExtraGateEnabled, onAddNano, onRemoveNano, onRefreshPorts, onSetPortMapping }: HardwareProps) {
   const [cmdInput, setCmdInput] = useState('');
   const [selectedNano, setSelectedNano] = useState(data.nanos?.[0]?.id || 'ALL');
-  const [availablePorts, setAvailablePorts] = useState<string[]>(['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyACM0', 'COM3', 'COM4']);
+  const [availablePorts, setAvailablePorts] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   const activeNanoId = (selectedNano === 'ALL' || data.nanos.some(n => n.id === selectedNano)) ? selectedNano : (data.nanos?.[0]?.id || 'ALL');
 
   const [activeTab, setActiveTab] = useState<'VALVES' | 'SENSORS' | 'GATES' | 'NANOS' | 'TERMINAL'>('VALVES');
 
-  const handleScan = () => {
+  const handleScan = async () => {
      setIsScanning(true);
-     setTimeout(() => {
-        setAvailablePorts(['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyACM0', 'COM1', 'COM3', 'COM4', 'COM5']);
+     try {
+        const ports = await onRefreshPorts();
+        setAvailablePorts(ports);
+     } finally {
         setIsScanning(false);
-     }, 1500);
+     }
   };
 
   const handleCommandSubmit = (e: React.FormEvent) => {
@@ -168,14 +172,25 @@ export function Hardware({ data, onAddHardware, onRemoveHardware, onToggleHardwa
                         <div className="flex space-x-1">
                           <select 
                              value={nano.port || ''}
-                             onChange={(e) => onUpdateNanoConfig(nano.id, { port: e.target.value })}
+                             onChange={(e) => {
+                                const newPort = e.target.value;
+                                onUpdateNanoConfig(nano.id, { port: newPort });
+                                const newMapping: Record<string, string> = {};
+                                data.nanos.forEach(n => {
+                                   newMapping[n.id] = n.id === nano.id ? newPort : (n.port || '');
+                                });
+                                onSetPortMapping(newMapping);
+                             }}
                              disabled={data.mode === 'OTOMATİK'}
                              className="w-full bg-[#151921] border border-[#374151] rounded px-2 py-1.5 text-xs text-gray-200 focus:border-indigo-500 outline-none disabled:opacity-50"
                           >
                              <option value="" disabled>Seçiniz</option>
-                             {availablePorts.filter(p => !data.nanos.some(n => n.id !== nano.id && n.port === p)).map(p => (
-                                <option key={p} value={p}>{p}</option>
+                             {availablePorts.map(p => (
+                                <option key={p.device} value={p.device}>{p.device} ({p.description || 'Arduino'})</option>
                              ))}
+                             {nano.port && !availablePorts.some(p => p.device === nano.port) && (
+                                <option value={nano.port}>{nano.port} (Kayıtlı)</option>
+                             )}
                           </select>
                           <button 
                              onClick={handleScan} 

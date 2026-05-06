@@ -27,57 +27,79 @@ except ImportError:
 class HardwareManager:
     def __init__(self):
         self.active_nanos = {}
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
+        self.port_mapping = {} # {'NANO-1': '/dev/ttyUSB0', ...}
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+        except Exception as e:
+            print(f"GPIO Initialization Error: {e}")
 
     def scan_ports(self):
         ports = serial.tools.list_ports.comports()
-        return [p.device for p in ports]
+        # Returns a list of dicts with more info
+        return [{"device": p.device, "description": p.description, "hwid": p.hwid} for p in ports]
 
-    def set_valve(self, nano_port: str, valve_id: int, state: bool):
+    def get_port_for_id(self, nano_id: str):
         """
-        Nano 2'ye valf komutu gönderir. 
-        Örn: 'V1_ON' veya 'V1_OFF'
+        Dinamik port eşleşmesini döndürür. 
+        Eğer eşleşme yoksa (Windows/Mac uyumluluğu için) portun kendisini döner.
         """
+        return self.port_mapping.get(nano_id, nano_id)
+
+    def set_port_mapping(self, mapping: dict):
+        self.port_mapping = mapping
+        print(f"Hardware: Port mapping updated: {mapping}")
+
+    def set_valve(self, port_or_id: str, valve_id: int, state: bool):
+        port = self.get_port_for_id(port_or_id)
         cmd = f"V{valve_id}_{'ON' if state else 'OFF'}"
-        return self.send_serial(nano_port, cmd)
+        return self.send_serial(port, cmd)
 
-    def set_gate(self, nano_port: str, gate_id: int, position: int):
-        """
-        Nano 1'e kilit (motor) komutu gönderir.
-        Örn: 'G1_POS_100'
-        """
+    def set_gate(self, port_or_id: str, gate_id: int, position: int):
+        port = self.get_port_for_id(port_or_id)
         cmd = f"G{gate_id}_POS_{position}"
-        return self.send_serial(nano_port, cmd)
+        return self.send_serial(port, cmd)
 
     def read_sensor(self, pin: int):
-        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        return GPIO.input(pin) == GPIO.LOW
+        try:
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            return GPIO.input(pin) == GPIO.LOW
+        except Exception:
+            return False
 
     def sync_gate_config(self, gate: dict):
-        """Nano 1'e motor parametrelerini gönderir."""
-        # Protokol: CONF_G:ID:PIN:DIR:ENA:SPEED:ACCEL
+        port = self.get_port_for_id(gate.get('nanoId', 'NANO-1'))
         cmd = f"CONF_G:{gate.get('id', 1)}:{gate.get('pin', '')}:{gate.get('dirPin', '')}:{gate.get('enablePin', '')}:{gate.get('speed', 1000)}:{gate.get('acceleration', 500)}"
-        return self.send_serial(gate.get('nanoId', 'COM3'), cmd)
+        return self.send_serial(port, cmd)
 
     def sync_valve_config(self, valve: dict):
-        """Nano 2'ye valf pin ve röle tipini gönderir."""
-        # Protokol: CONF_V:ID:PIN:TYPE(0:NO, 1:NC)
+        port = self.get_port_for_id(valve.get('nanoId', 'NANO-2'))
         v_type = 1 if valve.get('relayType') == 'NC' else 0
         cmd = f"CONF_V:{valve.get('id')}:{valve.get('pin', '')}:{v_type}"
-        return self.send_serial(valve.get('nanoId', 'COM4'), cmd)
+        return self.send_serial(port, cmd)
 
     def send_serial(self, port: str, command: str, baud=115200):
+        # Eğer port ismi boşsa veya 'NANO' ile başlıyorsa ve mapping yoksa pas geç
+        if not port or port.startswith('NANO'):
+            # print(f"Serial: Skipping unmapped port {port}")
+            return False
+            
         try:
             if port not in self.active_nanos:
+                # Pi 5 üzerinde bazen port meşgul olabilir, kısa bir bekleme ve tekrar deneme eklenebilir
                 self.active_nanos[port] = serial.Serial(port, baud, timeout=0.1)
+                time.sleep(1) # Arduinonun resetlenmesi için bekle
             
             ser = self.active_nanos[port]
             ser.write(f"{command}\n".encode())
             return True
         except Exception as e:
+            # Sadece bir kez hata yazdır
             print(f"Serial Error ({port}): {e}")
             if port in self.active_nanos:
+                try:
+                    self.active_nanos[port].close()
+                except: pass
                 del self.active_nanos[port]
             return False
 

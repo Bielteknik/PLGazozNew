@@ -106,6 +106,13 @@ async def handle_sync(sid, data):
     
     print(f"Hardware sync completed for {sid}")
 
+@sio.on("SET_PORT_MAPPING")
+async def handle_port_mapping(sid, mapping):
+    """
+    mapping: {'NANO-1': '/dev/ttyUSB0', 'NANO-2': '/dev/ttyACM0'}
+    """
+    hw.set_port_mapping(mapping)
+
 async def sensor_worker():
     """Arka planda sensörleri sürekli tarar ve değişiklik olduğunda HMI'a bildirir."""
     last_states = {}
