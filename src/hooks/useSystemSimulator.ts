@@ -171,13 +171,27 @@ export function useSystemSimulator() {
        }));
     };
 
+
+    const handleProductionUpdate = (payload: any) => {
+       setData(p => ({
+          ...p,
+          state: payload.state, // Note: system type has autoState, let's keep consistency
+          autoState: payload.state,
+          inputCount: payload.inputCount,
+          outputCount: payload.outputCount,
+          mode: payload.mode
+       }));
+    };
+
     socket.on('SENSOR_STATES', handleSensorStates);
     socket.on('DISTANCE_UPDATE', handleDistanceUpdate);
+    socket.on('PRODUCTION_UPDATE', handleProductionUpdate);
     socket.on('connect', () => console.log('Backend connected'));
 
     return () => {
       socket.off('SENSOR_STATES', handleSensorStates);
       socket.off('DISTANCE_UPDATE', handleDistanceUpdate);
+      socket.off('PRODUCTION_UPDATE', handleProductionUpdate);
       socket.off('connect');
     };
   }, []);
@@ -326,13 +340,14 @@ export function useSystemSimulator() {
   }, []);
 
   const setMode = useCallback((mode: SystemMode) => setData(p => {
+    socket.emit('SET_MODE', mode);
     // If entering washing mode, ensure gates are open
     if (mode === 'YIKAMA') {
       return {
         ...p,
         mode,
         isWashingDone: true, 
-        isWashingRequired: false, // Requirement met
+        isWashingRequired: false,
         inputGate: { ...p.inputGate, isOpen: true, position: 100 },
         outputGate: { ...p.outputGate, isOpen: true, position: 100 }
       };
@@ -364,15 +379,16 @@ export function useSystemSimulator() {
              }, ...p.activeAlerts]
           };
       }
+      socket.emit('SET_MODE', 'OTOMATİK');
+      socket.emit('START_AUTO_CYCLE');
       return { 
         ...p, 
         mode: 'OTOMATİK', 
-        autoState: 'BEKLEMEDE', // Wait for prompt
+        autoState: 'GIRIS_SAYILIYOR',
         inputCount: 0, 
         outputCount: 0,
-        inputGate: { ...p.inputGate, isOpen: false, position: 0 },
-        outputGate: { ...p.outputGate, isOpen: false, position: 0 },
-        activePrompt: 'BOTTLE_CHECK'
+        inputGate: { ...p.inputGate, isOpen: true, position: 100 },
+        outputGate: { ...p.outputGate, isOpen: false, position: 0 }
       };
     });
   }, []);
@@ -756,7 +772,7 @@ export function useSystemSimulator() {
     });
   }, []);
 
-  // Washing loop simulation
+  // Washing loop simulation (Keep this for now as it's a visual effect, or we could move it to backend too)
   useEffect(() => {
     if (data.mode !== 'YIKAMA') return;
 
@@ -765,159 +781,16 @@ export function useSystemSimulator() {
         ...p,
         valves: p.valves.map(v => v.enabled ? { ...v, isOpen: !v.isOpen } : v)
       }));
-    }, 500); // Pulse every 500ms
+    }, 500);
 
     return () => {
       clearInterval(interval);
-      // Ensure valves are closed when leaving washing mode
       setData(p => ({
         ...p,
         valves: p.valves.map(v => ({ ...v, isOpen: false }))
       }));
     };
   }, [data.mode]);
-
-  // Main simulation loop
-  useEffect(() => {
-    if (data.mode !== 'OTOMATİK') return;
-
-    let timeout: NodeJS.Timeout;
-
-    const transitionTo = (nextState: AutoState, delayMs: number) => {
-      timeout = setTimeout(() => {
-        setData(p => ({ ...p, autoState: nextState }));
-      }, delayMs);
-    };
-
-    switch (data.autoState) {
-      case 'GIRIS_SAYILIYOR':
-        // Simulate lasers counting inputs
-        timeout = setTimeout(() => {
-          setData(p => {
-             if (p.inputCount < p.config.targetCount) {
-                 return { ...p, inputCount: p.inputCount + 1 };
-             }
-             // Goal reached, next state
-             return { ...p, autoState: 'GIRIS_KILITLI', inputGate: { isOpen: false, position: 0 } };
-          });
-        }, 300); // 300ms per bottle detected
-        break;
-        
-      case 'GIRIS_KILITLI':
-        transitionTo('DENGELEME', 1000); // Ack lock in delay
-        break;
-        
-      case 'DENGELEME':
-        transitionTo('DOLUM', data.config.settlingTimeMs); // Vibration decay delay
-        break;
-        
-      case 'DOLUM':
-        // Fill based on individual valve durations
-        setData(p => {
-          const activeValves = p.valves.slice(0, p.config.targetCount);
-          // Trigger all valves
-          activeValves.forEach(v => {
-            socket.emit('VALVE_CONTROL', { port: v.nanoId || 'COM4', id: v.id, state: true });
-          });
-          
-          return {
-            ...p,
-            valves: p.valves.map((v, idx) => idx < p.config.targetCount ? { ...v, isOpen: true } : v),
-            terminalLogs: [`[${new Date().toLocaleTimeString()}] [AUTO] Dolum başladı (${p.config.targetCount} valf)`, ...p.terminalLogs.slice(0, 49)]
-          };
-        });
-
-        // Calculate max duration to wait
-        const maxFillTime = Math.max(...data.valves.slice(0, data.config.targetCount).map(v => v.pulseDuration || 1000));
-        
-        // Individual valve closing timeouts
-        data.valves.slice(0, data.config.targetCount).forEach(v => {
-           setTimeout(() => {
-              setData(current => {
-                 socket.emit('VALVE_CONTROL', { port: v.nanoId || 'COM4', id: v.id, state: false });
-                 return {
-                   ...current,
-                   valves: current.valves.map(val => val.id === v.id ? { ...val, isOpen: false } : val)
-                 };
-              });
-           }, v.pulseDuration || 1000);
-        });
-
-        timeout = setTimeout(() => {
-          setData(p => ({ ...p, autoState: 'DAMLA_BEKLEME' }));
-        }, maxFillTime + 200); // Small buffer after last valve closes
-        break;
-        
-      case 'DAMLA_BEKLEME':
-        transitionTo('TAHLIYE', data.config.dripWaitTimeMs);
-        break;
-
-      case 'TAHLIYE':
-        // Simulating bottles moving out one by one
-        timeout = setTimeout(() => {
-          setData(p => {
-             if (p.outputCount < p.inputCount) {
-                 if (!p.outputGate.isOpen) {
-                    return { ...p, outputGate: { isOpen: true, position: 100 } };
-                 }
-                 return { ...p, outputCount: p.outputCount + 1 };
-             }
-             // All bottles out
-             return { ...p, autoState: 'DOGRULAMA', outputGate: { isOpen: false, position: 0 } };
-          });
-        }, 500); // 500ms per bottle exiting
-        break;
-        
-      case 'DOGRULAMA':
-        // Validation rules:
-        const isValid = data.inputCount === data.config.targetCount && data.inputCount === data.outputCount;
-        
-        timeout = setTimeout(() => {
-           setData(p => {
-              const passport: any = {
-                 id: `PASS-${Date.now()}`,
-                 recipeName: p.recipes.find(r => r.id === p.config.recipeId)?.name || 'Bilinmeyen',
-                 timestamp: Date.now(),
-                 inputCount: p.inputCount,
-                 outputCount: p.outputCount,
-                 status: isValid ? 'GEÇTİ' : 'KALDI'
-              };
-
-              const newAlerts = isValid ? p.activeAlerts : [
-                {
-                  id: `ALR-VAL-${Date.now()}`,
-                  code: 'ERR_COUNT',
-                  severity: 'WARNING',
-                  message: 'Doğrulama Hatası',
-                  suggestion: 'Giriş ve çıkış sayıları uyuşmuyor.',
-                  timestamp: Date.now(),
-                  resolved: false
-                },
-                ...p.activeAlerts
-              ];
-
-              const willContinue = isValid && !p.stopAfterCycleRequested;
-
-              socket.emit('SAVE_HISTORY', passport);
-
-              return {
-                ...p,
-                mode: isValid ? (p.stopAfterCycleRequested ? 'BEKLEMEDE' : 'OTOMATİK') : 'ARIZA', 
-                autoState: 'BEKLEMEDE',
-                stopAfterCycleRequested: false,
-                inputCount: 0,
-                outputCount: 0,
-                activePrompt: willContinue ? 'BOTTLE_CHECK' : null,
-                cycleHistory: [passport, ...p.cycleHistory],
-                activeAlerts: newAlerts
-              };
-           });
-        }, 1500);
-        break;
-    }
-
-    return () => clearTimeout(timeout);
-  }, [data.mode, data.autoState, data.inputCount, data.outputCount, data.config, data.inputGate.isOpen, data.outputGate.isOpen, cycleStartTs]);
 
   return {
     data,

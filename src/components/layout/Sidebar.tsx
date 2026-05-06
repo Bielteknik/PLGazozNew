@@ -9,9 +9,11 @@ interface SidebarProps {
   systemMode: SystemMode;
   isEngineerMode: boolean;
   onToggleEngineerMode: () => void;
+  isSecurityLocked: boolean;
+  onToggleSecurityLock: () => void;
 }
 
-export function Sidebar({ currentTab, onChangeTab, systemMode, isEngineerMode, onToggleEngineerMode }: SidebarProps) {
+export function Sidebar({ currentTab, onChangeTab, systemMode, isEngineerMode, onToggleEngineerMode, isSecurityLocked, onToggleSecurityLock }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   const tabs = [
@@ -86,6 +88,21 @@ export function Sidebar({ currentTab, onChangeTab, systemMode, isEngineerMode, o
       
       <div className={cn("mt-auto border-t border-[#374151]", isCollapsed ? "p-1" : "p-3")}>
         <button 
+           title={isCollapsed ? "Güvenlik Kilidi" : undefined}
+           onClick={onToggleSecurityLock}
+           className={cn(
+             "w-full mb-1 flex items-center rounded text-[10px] font-black transition-all border",
+             isCollapsed ? "justify-center py-2 px-0" : "space-x-2 px-2 py-1.5",
+             isSecurityLocked 
+               ? "bg-[#450a0a] text-[#fca5a5] border-[#7f1d1d] shadow-[0_0_10px_rgba(252,165,165,0.15)]" 
+               : "bg-[#0D1016] text-gray-500 border-transparent hover:border-gray-700"
+           )}
+        >
+          {isSecurityLocked ? <Lock size={16} /> : <Unlock size={16} />}
+          {!isCollapsed && <span>{isSecurityLocked ? 'GÜVENLİK KİLİTLİ' : 'KİLİT AÇIK'}</span>}
+        </button>
+
+        <button 
            title={isCollapsed ? "Mühendis Modu" : undefined}
            onClick={onToggleEngineerMode}
            className={cn(
@@ -96,7 +113,7 @@ export function Sidebar({ currentTab, onChangeTab, systemMode, isEngineerMode, o
                : "bg-[#0D1016] text-gray-500 border-transparent hover:border-gray-700"
            )}
         >
-          {isEngineerMode ? <ShieldCheck size={16} /> : <Lock size={16} />}
+          <ShieldCheck size={16} />
           {!isCollapsed && <span>{isEngineerMode ? 'MÜHENDİS MODU' : 'OPERATÖR MODU'}</span>}
         </button>
 

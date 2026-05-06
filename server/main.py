@@ -6,11 +6,15 @@ import socketio
 from hardware import hw
 from database import db
 from sensors import sensors
+from production import ProductionManager
 
 app = FastAPI()
 # Socket.io setup
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio, app)
+
+# Production Logic Manager
+pm = ProductionManager(sio)
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,7 +54,25 @@ def delete_recipe(recipe_id: str):
 @app.post("/config")
 async def save_config(config: dict):
     db.save_config(config)
+    pm.set_config(config)
     return {"status": "ok"}
+
+@sio.on("SET_MODE")
+async def handle_set_mode(sid, mode):
+    pm.set_mode(mode)
+    await pm.broadcast_update()
+
+@sio.on("START_AUTO_CYCLE")
+async def handle_start_auto(sid, data=None):
+    await pm.start_auto_cycle()
+
+@sio.on("STOP_AUTO_CYCLE")
+async def handle_stop_auto(sid, data=None):
+    pm.set_mode("BEKLEMEDE")
+    await pm.broadcast_update()
+    # Kapatılması gereken valfleri kapat
+    for i in range(1, 11):
+        hw.set_valve("COM4", i, False)
 
 @sio.event
 async def connect(sid, environ):
@@ -98,7 +120,11 @@ async def sensor_worker():
             
             if current_states != last_states:
                 await sio.emit("SENSOR_STATES", current_states)
+                await pm.update(current_states)
                 last_states = current_states.copy()
+            else:
+                # Durum değişmese bile zamanlayıcıları işletmek için update çağırılmalı
+                await pm.update(current_states)
             
             # Mesafe Sensörü (Analog/Ultrasonik)
             distance = sensors.read_distance()
@@ -107,7 +133,7 @@ async def sensor_worker():
         except Exception as e:
             print(f"Sensor Worker Error: {e}")
             
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.02) # Optimized to 20ms
 
 @app.on_event("startup")
 async def startup_event():
