@@ -29,7 +29,6 @@ export function Dashboard({
 }: DashboardProps) {
   const isAuto = data.mode === 'OTOMATİK';
   const isWashing = data.mode === 'YIKAMA';
-  const activeRecipe = data.recipes.find(r => r.id === data.config.recipeId) || data.recipes[0];
   
   const autoStateLabels: Record<string, string> = {
     BEKLEMEDE: 'Beklemede',
@@ -136,7 +135,7 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* Recipe Selector - Large targets for HMI */}
+      {/* Recipe Selector */}
       {!isAuto && !isWashing && (
         <div className="grid grid-cols-3 gap-3 flex-shrink-0">
           {data.recipes.map((recipe) => (
@@ -168,7 +167,7 @@ export function Dashboard({
         </div>
       )}
 
-      {/* Main Flow Visualization */}
+      {/* Main Flow Visualization Grid */}
       <div className="grid grid-cols-12 gap-3 flex-1 min-h-0">
         
         {/* Left Column: Flow representation */}
@@ -178,7 +177,6 @@ export function Dashboard({
            </h2>
            
            <div className="flex-1 flex flex-col justify-center items-center relative w-full">
-              
               {/* Target / Progress Line */}
               <div className="absolute top-0 w-full flex justify-between px-4">
                  <div className="bg-[#0D1016] p-1.5 rounded border border-[#1F2937] text-center w-20 relative flex flex-col items-center">
@@ -213,7 +211,6 @@ export function Dashboard({
 
               {/* Conveyor graphic */}
               <div className="w-full mt-4 h-48 border-y-4 border-[#374151] bg-[#0D1016]/50 flex items-center justify-between px-16 relative">
-                 
                  {/* Input Gate */}
                  <div className="absolute left-10 -bottom-16 flex flex-col items-center z-20">
                     <div className="h-44 w-6 flex items-end overflow-hidden">
@@ -233,46 +230,34 @@ export function Dashboard({
                        <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none">GİRİŞ</div>
                     </div>
                  </div>
-                              {/* Valves */}
-                  <div className="absolute left-24 right-24 top-0 flex justify-between px-1 -mt-3 z-10">
-                     {[...data.valves].reverse().map((valve, i) => (
-                       <div key={valve.id} className="flex flex-col items-center w-6">
-                          <div className={cn(
-                            "w-6 h-6 rounded shadow-sm border relative transition-colors flex items-center justify-center", 
-                            (valve.isOpen || data.mode === 'YIKAMA') 
-                             ? (data.mode === 'YIKAMA' ? "bg-blue-600 border-blue-400 text-white" : "bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_8px_rgba(217,70,239,0.5)] text-white") 
-                             : "bg-[#2D333F] border-[#1F2937] text-gray-500"
-                          )}>
-                            <span className="text-[7px] font-bold">V{valve.id}</span>
-                            {data.isEngineerMode && (
-                                <span className="absolute -top-4 text-[6px] font-mono text-orange-400 font-bold whitespace-nowrap bg-black/60 px-1 rounded">
-                                   {valve.pulseDuration}ms
-                                </span>
-                             )}
-                          </div>
-                          <div className="w-1.5 h-4 bg-[#1F2937] mt-0.5 rounded-b-sm relative z-20" />
-                          {/* Fluid drip animation */}
-                          <AnimatePresence>
-                            {(valve.isOpen || data.mode === 'YIKAMA') && (
-                               <motion.div 
-                                 initial={{ height: 0, opacity: 1 }}
-                                 animate={{ height: 40, opacity: 0 }}
-                                 transition={{ 
-                                   repeat: Infinity, 
-                                   duration: data.mode === 'YIKAMA' ? 0.3 : 0.5 
-                                 }}
-                                 className={cn(
-                                   "w-1 mt-0.5 absolute top-[30px] rounded-full z-10",
-                                   data.mode === 'YIKAMA' ? "bg-blue-400" : "bg-fuchsia-500"
-                                 )}
-                               />
-                            )}
-                          </AnimatePresence>
-                       </div>
-                     ))}
-                  </div>
+
+                 {/* Valves */}
+                 <div className="absolute left-24 right-24 top-0 flex justify-between px-1 -mt-3 z-10">
+                    {[...data.valves].reverse().map((valve) => (
+                      <div key={valve.id} className="flex flex-col items-center w-6">
+                         <div className={cn(
+                           "w-6 h-6 rounded shadow-sm border relative transition-colors flex items-center justify-center", 
+                           (valve.isOpen || data.mode === 'YIKAMA') 
+                            ? (data.mode === 'YIKAMA' ? "bg-blue-600 border-blue-400 text-white" : "bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_8px_rgba(217,70,239,0.5)] text-white") 
+                            : "bg-[#2D333F] border-[#1F2937] text-gray-500"
+                         )}>
+                           <span className="text-[7px] font-bold">V{valve.id}</span>
+                         </div>
+                         <div className="w-1.5 h-4 bg-[#1F2937] mt-0.5 rounded-b-sm relative z-20" />
+                         <AnimatePresence>
+                           {(valve.isOpen || data.mode === 'YIKAMA') && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 1 }}
+                                animate={{ height: 40, opacity: 0 }}
+                                transition={{ repeat: Infinity, duration: data.mode === 'YIKAMA' ? 0.3 : 0.5 }}
+                                className={cn("w-1 mt-0.5 absolute top-[30px] rounded-full z-10", data.mode === 'YIKAMA' ? "bg-blue-400" : "bg-fuchsia-500")}
+                              />
+                           )}
+                         </AnimatePresence>
+                      </div>
+                    ))}
                  </div>
-                 
+
                  {/* Output Gate */}
                  <div className="absolute right-10 -bottom-16 flex flex-col items-center z-20">
                     <div className="h-44 w-6 flex items-end overflow-hidden">
@@ -290,25 +275,26 @@ export function Dashboard({
                        </div>
                        <div className={cn("w-6 h-2 rounded-full mb-1", data.outputGate.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
                        <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none">ÇIKIŞ</div>
-                            {/* Bottles mapping */}
-                  <div className="absolute left-24 right-24 bottom-0 flex justify-between px-1 z-0">
-                     {[...data.valves].reverse().map((valve, i) => (
-                        <div key={'bottle-'+valve.id} className="flex justify-center w-6">
-                           {data.inputCount > 0 && (
-                              <motion.div 
-                                initial={{ opacity: 0, y: 10 }} 
-                                animate={{ opacity: 1, y: 0 }}
-                                className="w-6 h-14 bg-gradient-to-t from-[#374151] to-[#4B5563] rounded-t-lg border-b border-gray-600 shadow-sm relative flex flex-col items-center justify-start pt-0.5"
-                              >
-                                 <div className="absolute -top-3 w-2.5 h-4 bg-[#4B5563] rounded-t-sm border border-gray-500" />
-                                 <div className="w-4 h-px bg-white/10 mt-1" />
-                              </motion.div>
-                           )}
-                        </div>
-                     ))}
-                  </div>
+                    </div>
                  </div>
 
+                 {/* Bottles mapping */}
+                 <div className="absolute left-24 right-24 bottom-0 flex justify-between px-1 z-0">
+                    {[...data.valves].reverse().map((valve) => (
+                       <div key={'bottle-'+valve.id} className="flex justify-center w-6">
+                          {data.inputCount > 0 && (
+                             <motion.div 
+                               initial={{ opacity: 0, y: 10 }} 
+                               animate={{ opacity: 1, y: 0 }}
+                               className="w-6 h-14 bg-gradient-to-t from-[#374151] to-[#4B5563] rounded-t-lg border-b border-gray-600 shadow-sm relative flex flex-col items-center justify-start pt-0.5"
+                             >
+                                <div className="absolute -top-3 w-2.5 h-4 bg-[#4B5563] rounded-t-sm border border-gray-500" />
+                                <div className="w-4 h-px bg-white/10 mt-1" />
+                             </motion.div>
+                          )}
+                       </div>
+                    ))}
+                 </div>
               </div>
            </div>
 
@@ -325,29 +311,19 @@ export function Dashboard({
         
         {/* Right Column: Status & Alerts */}
         <div className="col-span-4 flex flex-col space-y-3">
-           
            {/* Alerts Panel */}
            <div className="bg-[#151921] p-3 rounded border border-[#2D333F] flex-1 flex flex-col min-h-0">
               <h2 className="text-[10px] uppercase font-bold text-gray-400 mb-2 border-l-2 border-[#F97316] pl-2 flex items-center">
                  <ShieldAlert size={12} className="mr-2"/> Aktif Uyarılar
               </h2>
-              
               <div className="flex-1 overflow-y-auto space-y-1.5 mt-2">
                  {data.activeAlerts.filter(a => !a.resolved).length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-gray-500 text-[10px] font-mono">
-                       AKTIF_ALARM_YOK
-                    </div>
+                    <div className="h-full flex items-center justify-center text-gray-500 text-[10px] font-mono">AKTIF_ALARM_YOK</div>
                  ) : (
                     data.activeAlerts.filter(a => !a.resolved).map((alert, i) => (
-                       <div key={i} className={cn(
-                          "border p-2 rounded text-[10px] font-mono flex items-start",
-                          alert.severity === 'CRITICAL' ? "bg-red-900/30 border-red-800 text-red-400" : "bg-amber-900/30 border-amber-800 text-amber-400"
-                        )}>
+                       <div key={i} className={cn("border p-2 rounded text-[10px] font-mono flex items-start", alert.severity === 'CRITICAL' ? "bg-red-900/30 border-red-800 text-red-400" : "bg-amber-900/30 border-amber-800 text-amber-400")}>
                           <AlertTriangle size={12} className="mr-2 shrink-0 mt-0.5" />
-                          <div>
-                            <span className="font-bold">{alert.code}</span>
-                            <div className="mt-0.5 opacity-80">{alert.message}</div>
-                          </div>
+                          <div><span className="font-bold">{alert.code}</span><div className="mt-0.5 opacity-80">{alert.message}</div></div>
                        </div>
                     ))
                  )}
@@ -358,80 +334,35 @@ export function Dashboard({
            <div className="bg-[#151921] p-3 rounded border border-[#2D333F] flex-shrink-0">
               <h2 className="text-[10px] uppercase font-bold text-gray-400 mb-2 border-l-2 border-[#F97316] pl-2">Performans Analizi</h2>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937]">
-                    <div className="text-[8px] text-gray-500 font-bold uppercase">Verimlilik</div>
-                    <div className="text-lg font-mono text-emerald-400">{data.metrics.efficiencyPercent}%</div>
-                 </div>
-                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937]">
-                    <div className="text-[8px] text-gray-500 font-bold uppercase">Anlık BPM</div>
-                    <div className="text-lg font-mono text-blue-400">{data.metrics.averageBpm}</div>
-                 </div>
+                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937]"><div className="text-[8px] text-gray-500 font-bold uppercase">Verimlilik</div><div className="text-lg font-mono text-emerald-400">{data.metrics.efficiencyPercent}%</div></div>
+                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937]"><div className="text-[8px] text-gray-500 font-bold uppercase">Anlık BPM</div><div className="text-lg font-mono text-blue-400">{data.metrics.averageBpm}</div></div>
               </div>
               <div className="space-y-1.5 mt-3">
-                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800 pb-1">
-                    <span className="text-gray-500">Günlük Toplam:</span>
-                    <span className="font-mono text-white">{data.metrics.totalBottlesToday} Şişe</span>
-                 </div>
-                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800 pb-1">
-                    <span className="text-gray-500">Son Döngü:</span>
-                    <span className="font-mono text-white">{(data.metrics.lastCycleDurationMs/1000).toFixed(1)}s</span>
-                 </div>
+                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800 pb-1"><span className="text-gray-500">Günlük Toplam:</span><span className="font-mono text-white">{data.metrics.totalBottlesToday} Şişe</span></div>
+                 <div className="flex justify-between items-center text-[10px] border-b border-gray-800 pb-1"><span className="text-gray-500">Son Döngü:</span><span className="font-mono text-white">{(data.metrics.lastCycleDurationMs/1000).toFixed(1)}s</span></div>
               </div>
            </div>
-
         </div>
-
       </div>
 
       {/* Prompt Overlays */}
       <AnimatePresence>
          {data.activePrompt === 'BOTTLE_CHECK' && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-            >
-               <motion.div 
-                 initial={{ scale: 0.9, y: 20 }}
-                 animate={{ scale: 1, y: 0 }}
-                 className="bg-[#151921] border-2 border-blue-500 rounded-xl max-w-lg w-full p-8 shadow-[0_0_50px_rgba(59,130,246,0.3)]"
-               >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+               <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-[#151921] border-2 border-blue-500 rounded-xl max-w-lg w-full p-8 shadow-[0_0_50px_rgba(59,130,246,0.3)]">
                   <div className="flex flex-col items-center text-center">
-                     <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mb-6">
-                        <Droplet size={40} className="text-blue-400" />
-                     </div>
+                     <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mb-6"><Droplet size={40} className="text-blue-400" /></div>
                      <h3 className="text-2xl font-bold text-white mb-2">Dolum Alanı Kontrolü</h3>
-                     <p className="text-gray-400 text-lg mb-8 leading-relaxed">
-                        Üretim döngüsü başlamadan önce lütfen kontrol edin:<br/>
-                        <span className="text-white font-bold">Dolum alanında (şişe baskı bölgesinde) ürün var mı?</span>
-                     </p>
-                     
+                     <p className="text-gray-400 text-lg mb-8 leading-relaxed">Üretim döngüsü başlamadan önce lütfen kontrol edin:<br/><span className="text-white font-bold">Dolum alanında (şişe baskı bölgesinde) ürün var mı?</span></p>
                      <div className="grid grid-cols-2 gap-4 w-full">
-                        <button 
-                          onClick={() => onAnswerPrompt(true)}
-                          className="bg-red-500 hover:bg-red-600 text-white py-6 rounded-lg font-bold text-xl transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"
-                        >
-                           <ShieldAlert size={28} />
-                           EVET, VAR
-                        </button>
-                        <button 
-                          onClick={() => onAnswerPrompt(false)}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white py-6 rounded-lg font-bold text-xl transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"
-                        >
-                           <Target size={28} />
-                           HAYIR, BOŞ
-                        </button>
+                        <button onClick={() => onAnswerPrompt(true)} className="bg-red-500 hover:bg-red-600 text-white py-6 rounded-lg font-bold text-xl transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"><ShieldAlert size={28} />EVET, VAR</button>
+                        <button onClick={() => onAnswerPrompt(false)} className="bg-emerald-500 hover:bg-emerald-600 text-white py-6 rounded-lg font-bold text-xl transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"><Target size={28} />HAYIR, BOŞ</button>
                      </div>
-                     <p className="mt-6 text-gray-500 text-sm italic">
-                        * Üretimin sağlıklı başlaması için alanın boş olması gerekmektedir.
-                     </p>
                   </div>
                </motion.div>
             </motion.div>
          )}
       </AnimatePresence>
-
     </div>
   );
 }

@@ -14,8 +14,6 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [isSecurityLocked, setIsSecurityLocked] = useState(false);
   
-  console.log("App Rendering - Tab:", currentTab, "Mode:", data?.mode);
-  
   const {
     data,
     setMode,
@@ -57,6 +55,8 @@ export default function App() {
     requestStopAfterCycle,
     toggleEngineerMode
   } = useSystemSimulator();
+
+  console.log("App Rendering - Tab:", currentTab, "Mode:", data?.mode);
 
   return (
     <div className="flex h-screen bg-[#0B0D11] text-[#E0E0E0] overflow-hidden font-sans border-4 border-[#1F2937]">
