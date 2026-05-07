@@ -1,7 +1,0 @@
-customtkinter
-pyserial
-python-socketio
-fastapi
-uvicorn
-gpiozero
-lgpio; platform_system == "Linux"
