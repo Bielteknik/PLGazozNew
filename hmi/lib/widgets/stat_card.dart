@@ -19,58 +19,48 @@ class StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(25),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: const Color(0xFF121212),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF1F1F1F)),
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Icon(icon, color: color.withValues(alpha: 0.1), size: 60),
-          ),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
+              Icon(icon, color: const Color(0xFF555555), size: 16),
+              const SizedBox(width: 12),
               Text(
                 title.toUpperCase(),
                 style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF8B949E),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF555555),
                   letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 15),
-              Text(
-                value,
-                style: GoogleFonts.orbitron(
-                  fontSize: 42,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Container(
-                height: 3,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
             ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            value,
+            style: GoogleFonts.orbitron(
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              color: color,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 2,
+            width: 40,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
           ),
         ],
       ),

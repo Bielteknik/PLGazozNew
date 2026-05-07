@@ -42,6 +42,10 @@ class ProductionManager:
         
     async def start_auto_cycle(self):
         """HMI'dan gelen BAŞLAT komutu ile tetiklenir."""
+        self._start_auto_cycle_logic()
+        await self.broadcast_update()
+
+    def _start_auto_cycle_logic(self):
         if self.mode == "OTOMATİK":
             self.input_count = 0
             self.output_count = 0
@@ -49,71 +53,67 @@ class ProductionManager:
             # Giriş kilit açık, Çıkış kilit kapalı
             hw.set_gate("NANO-1", 1, 100) 
             hw.set_gate("NANO-1", 2, 0)
-            await self.broadcast_update()
-            print("Auto Cycle Started")
+            print("Auto Cycle Logic Executed")
+
+    def start_auto_cycle_sync(self):
+        self._start_auto_cycle_logic()
+        self.broadcast_update_sync()
 
     async def update(self, sensor_states):
-        """Sensör verileri değiştikçe main.py veya GUI tarafından çağrılır."""
-        
+        """Sensör verileri değiştikçe main.py tarafından çağrılır."""
+        self._update_logic(sensor_states)
+        await self.broadcast_update()
+
+    def update_sync(self, sensor_states):
+        """hmi_bridge.py tarafından çağrılır."""
+        self._update_logic(sensor_states)
+        self.broadcast_update_sync()
+
+    def _update_logic(self, sensor_states):
         if self.mode != "OTOMATİK":
-            # Manuel modda sadece sayaçları güncelle (test için)
-            await self.handle_counters(sensor_states)
+            self._handle_counters_logic(sensor_states)
             return
 
         # OTOMATİK MOD STATE MACHINE
         if self.state == "GIRIS_SAYILIYOR":
             if self.detect_rising_edge(sensor_states, self.PIN_IN):
                 self.input_count += 1
-                await self.broadcast_update()
                 
             if self.input_count >= self.config.get('targetCount', 3):
                 self.state = "GIRIS_KILITLI"
                 hw.set_gate("NANO-1", 1, 0) # Girişi Kapat
                 self.state_start_time = time.time()
-                await self.broadcast_update()
 
         elif self.state == "GIRIS_KILITLI":
-            # Çalkalanma/Dengelenme bekleme
             if time.time() - self.state_start_time >= (self.config.get('settlingTimeMs', 800) / 1000.0):
                 self.state = "DOLUM"
-                # Valfleri Aç (Aktif olanları)
                 for i in range(1, 11):
                     hw.set_valve("NANO-2", i, True)
                 self.state_start_time = time.time()
-                await self.broadcast_update()
 
         elif self.state == "DOLUM":
-            # Dolum süresi
             if time.time() - self.state_start_time >= (self.config.get('fillTimeMs', 4000) / 1000.0):
-                # Valfleri Kapat
                 for i in range(1, 11):
                     hw.set_valve("NANO-2", i, False)
                 self.state = "DAMLA_BEKLEME"
                 self.state_start_time = time.time()
-                await self.broadcast_update()
 
         elif self.state == "DAMLA_BEKLEME":
-            # Damlama bekleme
             if time.time() - self.state_start_time >= (self.config.get('dripWaitTimeMs', 1200) / 1000.0):
                 self.state = "TAHLIYE"
                 hw.set_gate("NANO-1", 2, 100) # Çıkışı Aç
-                await self.broadcast_update()
 
         elif self.state == "TAHLIYE":
             if self.detect_rising_edge(sensor_states, self.PIN_OUT):
                 self.output_count += 1
-                await self.broadcast_update()
 
             if self.output_count >= self.input_count and self.output_count > 0:
-                # Tahliye tamamlandı
                 self.state = "DOGRULAMA"
                 self.state_start_time = time.time()
-                await self.broadcast_update()
 
         elif self.state == "DOGRULAMA":
              if time.time() - self.state_start_time >= 1.0:
-                 # Yeni döngüye başla
-                 await self.start_auto_cycle()
+                 self._start_auto_cycle_logic()
 
         self.last_sensor_states = sensor_states.copy()
 
@@ -121,6 +121,10 @@ class ProductionManager:
         return current.get(pin, False) and not self.last_sensor_states.get(pin, False)
 
     async def handle_counters(self, sensor_states):
+        if self._handle_counters_logic(sensor_states):
+            await self.broadcast_update()
+
+    def _handle_counters_logic(self, sensor_states):
         changed = False
         if self.detect_rising_edge(sensor_states, self.PIN_IN):
             self.input_count += 1
@@ -129,27 +133,31 @@ class ProductionManager:
             self.output_count += 1
             changed = True
         
-        if changed:
-            await self.broadcast_update()
-        
         self.last_sensor_states = sensor_states.copy()
+        return changed
 
     async def broadcast_update(self):
-        data = {
+        data = self._prepare_data()
+        if self.sio:
+            await self.sio.emit("production_update", data) # HMI bridge uses lowercase
+            await self.sio.emit("PRODUCTION_UPDATE", data) # FastAPI uses uppercase
+        
+        for cb in self.callbacks:
+            if asyncio.iscoroutinefunction(cb): await cb(data)
+            else: cb(data)
+
+    def broadcast_update_sync(self):
+        data = self._prepare_data()
+        if self.sio:
+            self.sio.emit("production_update", data)
+        for cb in self.callbacks:
+            cb(data)
+
+    def _prepare_data(self):
+        return {
             "state": self.state,
             "inputCount": self.input_count,
             "outputCount": self.output_count,
             "mode": self.mode
         }
-        
-        # Socket.IO ile gönder
-        if self.sio:
-            await self.sio.emit("PRODUCTION_UPDATE", data)
-        
-        # Yerel callback'leri tetikle
-        for cb in self.callbacks:
-            if asyncio.iscoroutinefunction(cb):
-                await cb(data)
-            else:
-                cb(data)
 

@@ -72,6 +72,6 @@ if __name__ == '__main__':
     # Sensör tarama thread'ini başlat
     threading.Thread(target=sensor_worker, daemon=True).start()
     
-    # Sunucuyu başlat (Port 5000)
-    print("Flutter HMI Köprüsü 5000 portunda çalışıyor...")
-    eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
+    # Sunucuyu başlat (Port 5001)
+    print("Flutter HMI Köprüsü 5001 portunda çalışıyor...")
+    eventlet.wsgi.server(eventlet.listen(('', 5001)), app)

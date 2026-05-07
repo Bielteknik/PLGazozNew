@@ -18,7 +18,7 @@ class SocketService with ChangeNotifier {
 
   void _initSocket() {
     // Raspberry Pi IP adresine veya localhost'a bağlanır
-    socket = socket_io.io('http://localhost:5000', 
+    socket = socket_io.io('http://localhost:5001', 
       socket_io.OptionBuilder()
         .setTransports(['websocket'])
         .enableAutoConnect()

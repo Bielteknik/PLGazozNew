@@ -1,8 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'services/socket_service.dart';
-import 'widgets/stat_card.dart';
 
 void main() {
   runApp(
@@ -21,136 +22,221 @@ class PLGazozHMI extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PLGAZOZ v2.5',
+      title: 'PALANDÖKEN GAZOZ HMI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF010409),
-        primaryColor: const Color(0xFF1F6FEB),
+        scaffoldBackgroundColor: const Color(0xFF0F1218),
+        primaryColor: const Color(0xFF1E88E5),
         textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       ),
-      home: const MainLayout(),
+      home: const SCADALayout(),
     );
   }
 }
 
-class MainLayout extends StatefulWidget {
-  const MainLayout({super.key});
+class SCADALayout extends StatefulWidget {
+  const SCADALayout({super.key});
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  State<SCADALayout> createState() => _SCADALayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
-  int _selectedIndex = 0;
+class _SCADALayoutState extends State<SCADALayout> {
+  int _selectedIndex = 1;
+  bool _isSidebarCollapsed = true;
 
   @override
   Widget build(BuildContext context) {
     final socket = Provider.of<SocketService>(context);
+    final data = socket.productionData;
+    bool isWorking = data['state'] != 'BEKLEMEDE';
 
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar
-          Container(
-            width: 220,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D1117),
-              border: Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-            ),
+          _buildSidebar(isWorking),
+          Expanded(
             child: Column(
               children: [
-                const SizedBox(height: 50),
-                Text('PLGAZOZ', 
-                  style: GoogleFonts.orbitron(
-                    fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF58A6FF), letterSpacing: 2,
-                  )
-                ),
-                const SizedBox(height: 50),
-                _buildNavItem(0, 'ANA PANEL', Icons.dashboard_outlined),
-                _buildNavItem(1, 'MANUEL KONTROL', Icons.settings_remote_outlined),
-                _buildNavItem(2, 'REÇETELER', Icons.receipt_long_outlined),
-                _buildNavItem(3, 'AYARLAR', Icons.admin_panel_settings_outlined),
-                const Spacer(),
-                const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text('SİSTEM ÇEVRİMİÇİ', style: TextStyle(color: Color(0xFF3FB950), fontSize: 10, fontWeight: FontWeight.bold)),
+                _buildTopBar(socket),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: _buildBody(socket),
+                  ),
                 ),
               ],
             ),
           ),
-          // Dynamic Body
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(30),
-              child: _buildBody(_selectedIndex, socket),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(int index, String label, IconData icon) {
+  Widget _buildSidebar(bool isWorking) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: _isSidebarCollapsed ? 60 : 180,
+      decoration: const BoxDecoration(
+        color: Color(0xFF151921),
+        border: Border(right: BorderSide(color: Colors.white10)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          IconButton(
+            icon: Icon(_isSidebarCollapsed ? Icons.chevron_right : Icons.chevron_left, color: Colors.white38),
+            onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+          ),
+          const SizedBox(height: 10),
+          _sidebarItem(0, 'AÇILIŞ', Icons.dashboard_outlined),
+          _sidebarItem(1, 'İzleme', Icons.monitor_heart_outlined),
+          _sidebarItem(2, 'Donanım', Icons.settings_input_component),
+          _sidebarItem(3, 'Manuel', Icons.tune),
+          _sidebarItem(4, 'Geçmiş', Icons.history),
+          _sidebarItem(5, 'Arıza', Icons.report_problem),
+          const Spacer(),
+          // SETTINGS BUTTON (Above Exit)
+          _sidebarItem(6, 'Ayarlar', Icons.settings_outlined),
+          const SizedBox(height: 30), // Spacing between Settings and Exit
+          // EXIT BUTTON (Bottom)
+          Opacity(
+            opacity: isWorking ? 0.3 : 1.0,
+            child: IconButton(
+              icon: const Icon(Icons.power_settings_new, color: Colors.redAccent, size: 28),
+              onPressed: isWorking ? null : () => _showExitDialog(),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarItem(int index, String label, IconData icon) {
     bool isSelected = _selectedIndex == index;
     return InkWell(
       onTap: () => setState(() => _selectedIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        decoration: BoxDecoration(color: isSelected ? Colors.white.withValues(alpha: 0.05) : Colors.transparent),
+        height: 45,
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        decoration: BoxDecoration(
+          border: isSelected ? const Border(left: BorderSide(color: Colors.blueAccent, width: 3)) : null,
+          color: isSelected ? Colors.blueAccent.withOpacity(0.1) : Colors.transparent,
+        ),
         child: Row(
+          mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF58A6FF) : Colors.grey, size: 20),
-            const SizedBox(width: 15),
-            Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.grey, fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+            if (!_isSidebarCollapsed) const SizedBox(width: 15),
+            Icon(icon, color: isSelected ? Colors.blueAccent : Colors.white38, size: 20),
+            if (!_isSidebarCollapsed) ...[
+              const SizedBox(width: 12),
+              Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.white38, fontSize: 12)),
+            ]
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBody(int index, SocketService socket) {
-    switch (index) {
-      case 0: return _buildDashboard(socket);
-      case 1: return _buildManualControl(socket);
-      case 2: return _buildRecipes(socket);
-      case 3: return _buildSettings(socket);
-      default: return _buildDashboard(socket);
-    }
+  Widget _buildTopBar(SocketService socket) {
+    final data = socket.productionData;
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFF151921),
+        border: Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(4)),
+            child: const Icon(Icons.check_box_outline_blank, size: 16, color: Colors.white24),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(data['state'] ?? 'Hazır Durumda', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(data['mode'] ?? 'Beklemede', style: const TextStyle(fontSize: 10, color: Colors.white24)),
+            ],
+          ),
+          const SizedBox(width: 20),
+          _buildBadge('YIKAMA TAMAM', Colors.greenAccent),
+          const Spacer(),
+          _buildActionBtn('YIKAMAYI BAŞLAT', const Color(0xFF1E2644), Icons.water_drop_outlined, () {}),
+          const SizedBox(width: 10),
+          _buildActionBtn('ÜRETİMİ BAŞLAT', const Color(0xFF0E3021), Icons.play_arrow_outlined, () {
+            socket.sendCommand('set_mode', 'OTOMATİK');
+          }, iconColor: Colors.greenAccent),
+          const SizedBox(width: 10),
+          _buildActionBtn('ACİL DURDUR', const Color(0xFF421519), Icons.power_settings_new, () {
+            socket.sendCommand('set_mode', 'BEKLEMEDE');
+          }, iconColor: Colors.redAccent),
+        ],
+      ),
+    );
   }
 
-  // --- ANA PANEL ---
-  Widget _buildDashboard(SocketService socket) {
-    final data = socket.productionData;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), border: Border.all(color: color.withOpacity(0.3)), borderRadius: BorderRadius.circular(4)),
+      child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildActionBtn(String label, Color bgColor, IconData icon, VoidCallback onTap, {Color iconColor = Colors.white70}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)),
+        child: Row(
           children: [
-            Text('SİSTEM GENEL DURUMU', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF8B949E))),
-            Text('MOD: ${data['mode']}', style: const TextStyle(color: Color(0xFF58A6FF), fontWeight: FontWeight.bold)),
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
           ],
         ),
-        const SizedBox(height: 30),
+      ),
+    );
+  }
+
+  Widget _buildBody(SocketService socket) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildRecipeCard('Standart Şişe (500ml)', '3 Adet', '4s', true)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildRecipeCard('Büyük Şişe (1.5L)', '3 Adet', '8.5s', false)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildRecipeCard('Küçük Cam Şişe (250ml)', '3 Adet', '2.5s', false)),
+          ],
+        ),
+        const SizedBox(height: 12),
         Expanded(
           child: Row(
             children: [
-              Expanded(
-                flex: 1,
-                child: Column(
-                  children: [
-                    StatCard(title: 'Giriş Sayısı', value: '${data['inputCount']}', color: const Color(0xFF58A6FF), icon: Icons.login),
-                    const SizedBox(height: 20),
-                    StatCard(title: 'Çıkış Sayısı', value: '${data['outputCount']}', color: const Color(0xFF3FB950), icon: Icons.logout),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                flex: 2,
-                child: _buildProcessCard(socket),
-              ),
+              Expanded(flex: 3, child: _buildMimicPanel(socket)),
+              const SizedBox(width: 12),
+              Expanded(flex: 1, child: _buildWarningsPanel()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 160,
+          child: Row(
+            children: [
+              Expanded(flex: 3, child: _buildLogPanel()),
+              const SizedBox(width: 12),
+              Expanded(flex: 1, child: _buildPlanPanel()),
             ],
           ),
         ),
@@ -158,33 +244,30 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  Widget _buildProcessCard(SocketService socket) {
-    final state = socket.productionData['state'];
+  Widget _buildRecipeCard(String title, String count, String time, bool selected) {
     return Container(
-      padding: const EdgeInsets.all(30),
-      decoration: BoxDecoration(color: const Color(0xFF161B22), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withValues(alpha: 0.05))),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151921),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: selected ? Colors.blueAccent : Colors.white10),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CANLI SÜREÇ TAKİBİ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 40),
-          Text(state.toString().replaceAll('_', ' '), style: GoogleFonts.orbitron(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 30),
-          LinearProgressIndicator(value: _getProgressValue(state), backgroundColor: const Color(0xFF0D1117), color: const Color(0xFF1F6FEB), minHeight: 12, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 50),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildSensorNode('L1', socket.sensorStates[17] ?? false),
-              _buildSensorNode('L2', socket.sensorStates[27] ?? false),
-              _buildSensorNode('L3', socket.sensorStates[22] ?? false),
-            ],
-          ),
-          const Spacer(),
+          const Text('ÜRETİM REÇETESİ', style: TextStyle(fontSize: 8, color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _buildActionBtn('OTOMASYONU BAŞLAT', const Color(0xFF238636), () => socket.sendCommand('set_mode', 'OTOMATİK'))),
-              const SizedBox(width: 20),
-              Expanded(child: _buildActionBtn('ACİL DURDURMA', const Color(0xFFDA3633), () => socket.sendCommand('set_mode', 'BEKLEMEDE'))),
+              const Icon(Icons.layers_outlined, size: 12, color: Colors.white24),
+              const SizedBox(width: 4),
+              Text(count, style: const TextStyle(fontSize: 10, color: Colors.white24)),
+              const SizedBox(width: 12),
+              const Icon(Icons.timer_outlined, size: 12, color: Colors.white24),
+              const SizedBox(width: 4),
+              Text(time, style: const TextStyle(fontSize: 10, color: Colors.white24)),
             ],
           ),
         ],
@@ -192,154 +275,229 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  // --- MANUEL KONTROL ---
-  Widget _buildManualControl(SocketService socket) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('MANUEL DONANIM KONTROLÜ', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF8B949E))),
-        const SizedBox(height: 30),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(color: const Color(0xFF161B22), borderRadius: BorderRadius.circular(12)),
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 3, crossAxisSpacing: 10, mainAxisSpacing: 10),
-                    itemCount: 10,
-                    itemBuilder: (ctx, i) => _buildValveBtn(socket, i + 1),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              Container(
-                width: 300,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: const Color(0xFF161B22), borderRadius: BorderRadius.circular(12)),
-                child: Column(
-                  children: [
-                    const Text('KAPI KONTROLLERİ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                    const SizedBox(height: 20),
-                    _buildGateBtn(socket, 1, 'GİRİŞ KAPI AÇ', true),
-                    _buildGateBtn(socket, 1, 'GİRİŞ KAPI KAPAT', false),
-                    const Divider(height: 40, color: Colors.white10),
-                    _buildGateBtn(socket, 2, 'ÇIKIŞ KAPI AÇ', true),
-                    _buildGateBtn(socket, 2, 'ÇIKIŞ KAPI KAPAT', false),
-                  ],
-                ),
-              ),
+  Widget _buildMimicPanel(SocketService socket) {
+    final data = socket.productionData;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFF11141D), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.settings_suggest_outlined, size: 14, color: Colors.white24),
+              SizedBox(width: 8),
+              Text('Görsel Akış Kontrolü', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38)),
             ],
           ),
-        ),
-      ],
-    );
-  }
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                double w = constraints.maxWidth;
+                double h = constraints.maxHeight;
+                return Stack(
+                  children: [
+                    // PIPELINES
+                    Positioned(top: h * 0.3, left: 0, right: 0, child: Container(height: 2, color: Colors.white10)),
+                    Positioned(top: h * 0.7, left: 0, right: 0, child: Container(height: 2, color: Colors.white10)),
 
-  // --- REÇETELER ---
-  Widget _buildRecipes(SocketService socket) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('REÇETE KÜTÜPHANESİ', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF8B949E))),
-        const SizedBox(height: 20),
-        Expanded(
-          child: ListView.builder(
-            itemCount: 5, // Mock data for now
-            itemBuilder: (ctx, i) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(color: const Color(0xFF161B22), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long, color: Color(0xFF58A6FF)),
-                  const SizedBox(width: 20),
-                  Text('REÇETE ${i+1} - ÖRNEK DOLUM', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  const Spacer(),
-                  _buildActionBtn('YÜKLE', const Color(0xFF1F6FEB), () {}, height: 40, width: 100),
-                ],
-              ),
+                    // COUNTERS (Fixed absolute top positions)
+                    Positioned(left: 100, top: 10, child: _counterUnit('GİRİŞ', '${data['inputCount']}', Colors.orangeAccent)),
+                    Positioned(left: w/2 - 50, top: 10, child: _counterUnit('HEDEF', '3', const Color(0xFF2E3A5F), isCenter: true)),
+                    Positioned(right: 100, top: 10, child: _counterUnit('ÇIKIŞ', '${data['outputCount']}', Colors.greenAccent)),
+
+                    // NOZZLES
+                    _pos(w * 0.25, h * 0.3, _nozzleUnit('V3')),
+                    _pos(w * 0.5, h * 0.3, _nozzleUnit('V2')),
+                    _pos(w * 0.75, h * 0.3, _nozzleUnit('V1')),
+
+                    // GATES (PIXEL POSITIONED as requested)
+                    Positioned(left: 20, top: h * 0.45, child: _gateChamber('GİRİŞ', true)),
+                    Positioned(right: 20, top: h * 0.45, child: _gateChamber('ÇIKIŞ', false)),
+                  ],
+                );
+              }
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  // --- AYARLAR ---
-  Widget _buildSettings(SocketService socket) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('SİSTEM VE MÜHENDİS AYARLARI', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF8B949E))),
-        const SizedBox(height: 30),
-        Container(
-          padding: const EdgeInsets.all(25),
-          decoration: BoxDecoration(color: const Color(0xFF161B22), borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            children: [
-              _buildSettingRow('Donanım Senkronizasyonu', 'Arduino Nano kilit ayarlarını Pi üzerinden güncelle.', () {}),
-              const Divider(height: 40, color: Colors.white10),
-              _buildSettingRow('Sensör Kalibrasyonu', 'Lazer sensör hassasiyet değerlerini ayarla.', () {}),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // --- YARDIMCI WIDGETLAR ---
-  Widget _buildValveBtn(SocketService socket, int id) {
-    return ElevatedButton(
-      onPressed: () => socket.sendCommand('toggle_valve', id),
-      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF21262D), side: const BorderSide(color: Colors.white10)),
-      child: Text('VALF $id', style: const TextStyle(fontSize: 11)),
-    );
-  }
-
-  Widget _buildGateBtn(SocketService socket, int id, String label, bool open) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: _buildActionBtn(label, open ? const Color(0xFF1F6FEB) : const Color(0xFF30363D), () {}),
-    );
-  }
-
-  Widget _buildActionBtn(String label, Color color, VoidCallback? onPressed, {double height = 50, double? width}) {
-    return SizedBox(
-      height: height,
-      width: width,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(backgroundColor: color, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ],
       ),
     );
   }
 
-  Widget _buildSettingRow(String title, String desc, VoidCallback onAction) {
-    return Row(
+  Widget _pos(double x, double y, Widget child) => Positioned(left: x, top: y, child: child);
+
+  Widget _counterUnit(String label, String val, Color color, {bool isCenter = false}) {
+    return Column(
       children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ]),
-        const Spacer(),
-        _buildActionBtn('UYGULA', const Color(0xFF1F6FEB), onAction, width: 100, height: 35),
+        Text(label, style: const TextStyle(fontSize: 9, color: Colors.white24, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Container(
+          width: isCenter ? 100 : 80,
+          height: isCenter ? 60 : 50,
+          decoration: BoxDecoration(
+            color: const Color(0xFF151921),
+            border: Border.all(color: isCenter ? const Color(0xFF3F4E7A) : Colors.white10, width: isCenter ? 2 : 1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          alignment: Alignment.center,
+          child: Text(val, style: GoogleFonts.orbitron(fontSize: isCenter ? 26 : 22, fontWeight: FontWeight.bold, color: color)),
+        ),
+        if (!isCenter) Container(width: 40, height: 4, color: color),
       ],
     );
   }
 
-  Widget _buildSensorNode(String label, bool active) {
-    return Column(children: [
-      Text(label, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 10)),
-      const SizedBox(height: 10),
-      Container(width: 50, height: 8, decoration: BoxDecoration(color: active ? const Color(0xFF3FB950) : const Color(0xFF21262D), borderRadius: BorderRadius.circular(4))),
-    ]);
+  Widget _nozzleUnit(String label) {
+    return Column(
+      children: [
+        Container(
+          width: 35, height: 25,
+          decoration: const BoxDecoration(color: Color(0xFF1C222E), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(4), bottomRight: Radius.circular(4))),
+          alignment: Alignment.center,
+          child: Text(label, style: const TextStyle(fontSize: 8, color: Colors.white38, fontWeight: FontWeight.bold)),
+        ),
+        Container(width: 8, height: 20, color: Colors.white10),
+      ],
+    );
   }
 
-  double _getProgressValue(String state) {
-    Map<String, double> progress = {'BEKLEMEDE': 0.0, 'GIRIS_SAYILIYOR': 0.2, 'DOLUM': 0.5, 'TAHLIYE': 0.8, 'DOGRULAMA': 1.0};
-    return progress[state] ?? 0.0;
+  Widget _gateChamber(String label, bool isLocked) {
+    return Column(
+      children: [
+        Container(
+          width: 25, height: 90,
+          decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.8), borderRadius: BorderRadius.circular(4)),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: 55, height: 50,
+          decoration: BoxDecoration(color: const Color(0xFF1C222E), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(6)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 16, color: isLocked ? Colors.redAccent : Colors.white10),
+              const SizedBox(height: 2),
+              Text(label, style: const TextStyle(fontSize: 9, color: Colors.white24)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWarningsPanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFF151921), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.warning_amber_outlined, size: 14, color: Colors.orangeAccent),
+              SizedBox(width: 8),
+              Text('AKTİF UYARILAR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(0.05), border: Border.all(color: Colors.orangeAccent.withOpacity(0.2)), borderRadius: BorderRadius.circular(4)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('SYS_ACTIVE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orangeAccent)),
+                Text('Sistem Aktif', style: TextStyle(fontSize: 10, color: Colors.white70)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogPanel() {
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xFF0B0E14), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10))),
+            width: double.infinity,
+            child: const Text('SİSTEM DURUMU / HABERLEŞME MESAJLARI', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white24)),
+          ),
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              child: const Text('[09:15:37] [SYS] Master terminal initialized.', style: TextStyle(fontSize: 11, color: Colors.greenAccent, fontFamily: 'monospace')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanPanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFF151921), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white10)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('MEVCUT ÜRETİM PLANI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orangeAccent)),
+          const Spacer(),
+          _planRow('Reçete:', 'Standart Şişe (500ml)'),
+          _planRow('Hedef:', '3 Adet'),
+          _planRow('Gürültü Filtresi:', '35ms (ADAPTİF)', valColor: Colors.greenAccent),
+        ],
+      ),
+    );
+  }
+
+  Widget _planRow(String label, String val, {Color valColor = Colors.white}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.white24)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              val, 
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: valColor),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExitDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF151921),
+        title: const Text('Uygulamadan Çıkış'),
+        content: const Text('HMI uygulamasını kapatmak ve ana ekrana dönmek istediğinize emin misiniz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('İPTAL')),
+          TextButton(
+            onPressed: () {
+              if (Platform.isAndroid) {
+                SystemNavigator.pop();
+              } else {
+                exit(0);
+              }
+            },
+            child: const Text('ÇIKALIM', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
   }
 }
