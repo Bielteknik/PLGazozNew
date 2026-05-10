@@ -36,7 +36,7 @@ export function Dashboard({
 }: DashboardProps) {
   const isAuto = data.mode === 'OTOMATİK';
   const isWashing = data.mode === 'YIKAMA';
-  const activeRecipe = data.recipes.find(r => r.id === data.config.recipeId) || data.recipes[0];
+  const activeRecipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0];
   
   const autoStateLabels: Record<string, string> = {
     BEKLEMEDE: 'Beklemede',
@@ -360,12 +360,12 @@ export function Dashboard({
               </h2>
               
               <div className="flex-1 overflow-y-auto space-y-1.5 mt-2 transition-all duration-300 custom-scrollbar pr-1">
-                 {data.activeAlerts.filter(a => !a.resolved).length === 0 ? (
+                 {data?.activeAlerts?.filter(a => !a.resolved).length === 0 ? (
                     <div className="h-full flex items-center justify-center text-gray-500 text-[10px] font-mono">
                        AKTIF_ALARM_YOK
                     </div>
                  ) : (
-                    data.activeAlerts.filter(a => !a.resolved).map((alert, i) => (
+                    data?.activeAlerts?.filter(a => !a.resolved).map((alert, i) => (
                        <motion.div 
                          initial={{ opacity: 0, x: 20 }}
                          animate={{ opacity: 1, x: 0 }}

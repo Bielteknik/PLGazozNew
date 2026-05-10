@@ -15,9 +15,9 @@ export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProp
   const systemMode = data.mode;
   const isProcessActive = systemMode === 'OTOMATİK' || systemMode === 'BASLATMA' || systemMode === 'YIKAMA';
 
-  const onlineNanos = data.nanos.filter(n => n.status === 'ONLINE').length;
-  const activeAlerts = data.activeAlerts.filter(a => !a.resolved).length;
-  const criticalAlerts = data.activeAlerts.filter(a => !a.resolved && a.severity === 'CRITICAL').length;
+  const onlineNanos = data?.nanos?.filter(n => n.status === 'ONLINE').length || 0;
+  const activeAlerts = data?.activeAlerts?.filter(a => !a.resolved).length || 0;
+  const criticalAlerts = data?.activeAlerts?.filter(a => !a.resolved && a.severity === 'CRITICAL').length || 0;
   
   const healthScore = criticalAlerts > 0 ? 'CRITICAL' : activeAlerts > 2 ? 'WARNING' : 'HEALTHY';
   
