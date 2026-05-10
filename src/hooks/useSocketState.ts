@@ -51,7 +51,7 @@ export function useSocketState() {
     manualExpires: null,
     manualLogin: () => {}, // No longer needed
     manualLogout: () => {
-      socket?.emit('MANUAL_LOGOUT');
+      emitAction('EXIT_APPLICATION');
     },
     setMode: (mode: SystemMode) => emitAction('SET_MODE', { mode }),
     startAutoCycle: () => emitAction('START_AUTO_CYCLE'),

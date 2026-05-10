@@ -343,6 +343,17 @@ export class StateManager {
         }));
         break;
       }
+      case 'EXIT_APPLICATION': {
+        console.log('[System] Exit requested. Killing browser and stopping services...');
+        const { exec } = require('child_process');
+        // Kill any chromium or chrome processes
+        exec('pkill chromium-browser || pkill chromium || pkill chrome');
+        // Give it a moment to close before exiting backend
+        setTimeout(() => {
+          process.exit(0);
+        }, 1000);
+        break;
+      }
     }
     
     return this.data;

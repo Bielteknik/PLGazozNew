@@ -11,27 +11,17 @@ export const INITIAL_STATE: SystemData = {
   valves: Array.from({ length: 9 }, (_, i) => ({
     id: i + 1,
     isOpen: false,
-    mode: 'CONTINUOUS',
-    enabled: true,
-    pulseDuration: 1000
-  })),
-  nanos: [
-    { id: 'NANO-1', name: 'NANO 1 (KAPILAR)', status: 'ONLINE', pingMs: 12, port: 'COM3', baudRate: 115200 },
-    { id: 'NANO-2', name: 'NANO 2 (VALFLER)', status: 'ONLINE', pingMs: 14, port: 'COM4', baudRate: 115200 }
-  ],
+  valves: [],
+  nanos: [],
   sensors: [
-    { id: 'SENS-IN', name: 'Giriş Lazer', enabled: true, pin: 'GPIO2', device: 'RASPI', type: 'INPUT' },
-    { id: 'SENS-OUT', name: 'Çıkış Lazer', enabled: true, pin: 'GPIO3', device: 'RASPI', type: 'OUTPUT' }
+    { id: 'SENS-IN', name: 'Giriş Lazeri (P17)', type: 'OPTICAL', enabled: true, status: 'ONLINE', pin: 17 },
+    { id: 'SENS-OUT', name: 'Çıkış Lazeri (P27)', type: 'OPTICAL', enabled: true, status: 'ONLINE', pin: 27 }
   ],
-  terminalLogs: [`[${new Date().toLocaleTimeString()}] [SYS] Master terminal initialized.`],
-  inputGate: { isOpen: false, position: 0, enabled: true },
-  outputGate: { isOpen: false, position: 0, enabled: true },
+  terminalLogs: ['Sistem Hazır. Lütfen donanım birimlerini tanımlayın.'],
+  inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true },
+  outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true },
   extraGates: [],
   
-  cycleHistory: [
-    { id: 'CYC-0001', timestamp: Date.now() - 3600000, recipeId: 'REC-01', duration: 42000, inputCount: 9, outputCount: 9, validationStatus: 'PASS', operatorId: 'OP-123' },
-    { id: 'CYC-0002', timestamp: Date.now() - 3000000, recipeId: 'REC-01', duration: 43500, inputCount: 9, outputCount: 9, validationStatus: 'PASS', operatorId: 'OP-123' },
-  ],
   activeAlerts: [
     { id: 'ALR-STARTUP', code: 'SYS_ACTIVE', severity: 'WARNING', message: 'Sistem Aktif', suggestion: 'Üretime başlamak için reçete seçin ve yıkama kontrolü yapın.', timestamp: Date.now(), resolved: false }
   ],
