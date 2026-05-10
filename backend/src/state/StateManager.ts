@@ -65,6 +65,14 @@ export class StateManager {
     // Wire GPIO events to State Machine
     this.gpio.onInputDetected = () => this.handleInputLaser();
     this.gpio.onOutputDetected = () => this.handleOutputLaser();
+
+    // Wire Serial status events to State
+    this.serial.onStatus = (id, status) => {
+      this.updateData(p => ({
+        ...p,
+        nanos: p.nanos.map(n => n.id === id ? { ...n, status } : n)
+      }));
+    };
   }
 
   public setManualAuth(token: string, expires: number) {

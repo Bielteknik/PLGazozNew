@@ -4,6 +4,7 @@ import { ReadlineParser } from '@serialport/parser-readline';
 export class SerialManager {
   private ports: Map<string, SerialPort> = new Map();
   public onData?: (id: string, data: string) => void;
+  public onStatus?: (id: string, status: 'ONLINE' | 'OFFLINE') => void;
 
   constructor() {
     this.scanPorts();
@@ -25,7 +26,7 @@ export class SerialManager {
       this.disconnect(id);
     }
 
-    const port = new SerialPort({ path, baudRate });
+    const port = new SerialPort({ path, baudRate, autoOpen: false });
     const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
     port.on('open', () => {
@@ -42,6 +43,17 @@ export class SerialManager {
     });
 
     this.ports.set(id, port);
+
+    // Açıkça portu açıyoruz
+    port.open((err) => {
+      if (err) {
+        console.error(`[Serial] Error opening port ${path} for ${id}:`, err.message);
+        this.onStatus?.(id, 'OFFLINE');
+      } else {
+        console.log(`[Serial] Successfully connected to ${id} on ${path}`);
+        this.onStatus?.(id, 'ONLINE');
+      }
+    });
   }
 
   public disconnect(id: string) {
@@ -49,6 +61,7 @@ export class SerialManager {
     if (port && port.isOpen) {
       port.close();
       this.ports.delete(id);
+      this.onStatus?.(id, 'OFFLINE');
       console.log(`[Serial] Disconnected from ${id}`);
     }
   }
