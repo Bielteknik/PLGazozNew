@@ -113,3 +113,13 @@ httpServer.listen(PORT, () => {
   console.log(`[Server] HMI Backend started on port ${PORT}`);
   console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Graceful shutdown
+const shutdown = () => {
+  console.log('[Server] Shutting down...');
+  gpioManager.cleanup();
+  process.exit(0);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

@@ -58,7 +58,9 @@ export const INITIAL_STATE: SystemData = {
     autoCleanIntervalCount: 1000,
     maxTemperatureThreshold: 65,
     voltageWarningLimit: 22.5,
-    emergencyStopBehavior: 'FREEZE'
+    emergencyStopBehavior: 'FREEZE',
+    washDurationMs: 60000,
+    washValveIntervalMs: 5000
   },
   recipes: [
     { id: 'REC-01', name: 'Şerbet Dolum (40ml)', volumeMl: 40, targetCount: 9, fillTimeMs: 1500, settlingTimeMs: 800, dripWaitTimeMs: 400, description: '40ml şerbet dolumu. 9 başlık, 400ms tahliye beklemesi.' },

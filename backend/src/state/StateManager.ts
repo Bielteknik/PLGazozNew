@@ -347,11 +347,14 @@ export class StateManager {
       if (mode === 'YIKAMA') {
         this.serial.sendGateCommand('INPUT', 'OPEN');
         this.serial.sendGateCommand('OUTPUT', 'OPEN');
-        return {
-          ...p, mode, isWashingDone: true, isWashingRequired: false,
+        this.updateData(p => ({ 
+          ...p, mode, autoState: 'YIKAMA_DONGUSU',
           inputGate: { ...p.inputGate, isOpen: true, position: 100 },
           outputGate: { ...p.outputGate, isOpen: true, position: 100 }
-        };
+        }));
+        this.cycleStartTs = Date.now();
+        this.processAutoState();
+        return;
       }
       if (mode === 'TAHLIYE') {
         this.serial.sendGateCommand('INPUT', 'OPEN');
@@ -437,7 +440,7 @@ export class StateManager {
   }
 
   private processAutoState() {
-    if (this.data.mode !== 'OTOMATİK') return;
+    if (this.data.mode !== 'OTOMATİK' && this.data.mode !== 'YIKAMA') return;
 
     switch (this.data.autoState) {
       case 'GIRIS_SAYILIYOR':
@@ -539,6 +542,31 @@ export class StateManager {
            });
            this.processAutoState();
         }, 1500);
+        break;
+
+      case 'YIKAMA_DONGUSU':
+        const elapsed = Date.now() - this.cycleStartTs;
+        if (elapsed >= this.data.config.washDurationMs) {
+           this.serial.sendValveCommand('ALL', 'OFF');
+           this.updateData(p => ({ 
+             ...p, mode: 'BEKLEMEDE', autoState: 'BEKLEMEDE', 
+             isWashingDone: true, isWashingRequired: false,
+             valves: p.valves.map(v => ({ ...v, isOpen: false }))
+           }));
+        } else {
+           // Toggle valves every washValveIntervalMs
+           const shouldBeOpen = Math.floor(elapsed / this.data.config.washValveIntervalMs) % 2 === 0;
+           this.updateData(p => {
+              if (p.valves[0].isOpen !== shouldBeOpen) {
+                 this.serial.sendValveCommand('ALL', shouldBeOpen ? 'ON' : 'OFF');
+                 return { ...p, valves: p.valves.map(v => ({ ...v, isOpen: shouldBeOpen })) };
+              }
+              return p;
+           });
+           
+           if (this.currentTimeout) clearTimeout(this.currentTimeout);
+           this.currentTimeout = setTimeout(() => this.processAutoState(), 500);
+        }
         break;
     }
   }

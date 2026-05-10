@@ -650,10 +650,49 @@ export function Settings({
                       <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
                     </label>
                   </div>
-                </div>
-              </div>
-
-              <div className="bg-[#151921] border border-[#2D333F] rounded p-4 space-y-6 flex flex-col">
+                 </div>
+               </div>
+ 
+               <div className="bg-[#151921] border border-[#2D333F] rounded p-4 space-y-6">
+                 <h3 className="text-[11px] font-bold text-gray-300 border-l-2 border-emerald-500 pl-2 uppercase tracking-wider mb-4 flex items-center">
+                    <Droplet size={14} className="mr-2 text-emerald-500" /> Yıkama Parametreleri
+                 </h3>
+                 
+                 <div className="space-y-4">
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Toplam Yıkama Süresi (ms)</label>
+                     <div className="relative">
+                       <input 
+                         type="number" 
+                         name="washDurationMs"
+                         value={data.config.washDurationMs}
+                         onChange={handleConfigChange}
+                         disabled={data.mode === 'OTOMATİK'}
+                         className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs font-mono text-emerald-400 focus:border-emerald-500/50 outline-none"
+                       />
+                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-600">MS</span>
+                     </div>
+                   </div>
+ 
+                   <div className="space-y-2">
+                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Valf Darbeleme Aralığı (ms)</label>
+                     <div className="relative">
+                       <input 
+                         type="number" 
+                         name="washValveIntervalMs"
+                         value={data.config.washValveIntervalMs}
+                         onChange={handleConfigChange}
+                         disabled={data.mode === 'OTOMATİK'}
+                         className="w-full bg-[#0D1016] border border-[#374151] rounded px-3 py-2 text-xs font-mono text-blue-400 focus:border-blue-500/50 outline-none"
+                       />
+                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-600">MS</span>
+                     </div>
+                     <p className="text-[8px] text-gray-600 uppercase font-bold italic">Valflerin yıkama sırasında açılıp kapanma hızı</p>
+                   </div>
+                 </div>
+               </div>
+ 
+               <div className="bg-[#151921] border border-[#2D333F] rounded p-4 space-y-6 flex flex-col">
                 <h3 className="text-[11px] font-bold text-gray-300 border-l-2 border-blue-500 pl-2 uppercase tracking-wider mb-4 flex items-center">
                    <FileText size={14} className="mr-2 text-blue-500" /> Diagnostik & Log Seviyesi
                 </h3>

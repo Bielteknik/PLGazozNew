@@ -110,6 +110,10 @@ export interface SystemConfig {
   maxTemperatureThreshold: number;
   voltageWarningLimit: number;
   emergencyStopBehavior: 'FREEZE' | 'RELEASE_PRESSURE' | 'SAFE_HOME';
+  
+  // Washing Parameters
+  washDurationMs: number;
+  washValveIntervalMs: number;
 }
 
 export interface Recipe {

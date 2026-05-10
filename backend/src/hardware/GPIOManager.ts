@@ -1,8 +1,8 @@
-import { Gpio } from 'onoff';
+import { spawn, ChildProcess } from 'child_process';
 
 export class GPIOManager {
-  private inputLaser: Gpio | null = null;
-  private outputLaser: Gpio | null = null;
+  private inputProcess: ChildProcess | null = null;
+  private outputProcess: ChildProcess | null = null;
   
   // Callbacks
   public onInputDetected: () => void = () => {};
@@ -13,29 +13,39 @@ export class GPIOManager {
   }
 
   private initGPIO() {
-    try {
-      if (Gpio.accessible) {
-        // Physical Pi pins: GPIO 17 for input, GPIO 27 for output
-        this.inputLaser = new Gpio(17, 'in', 'falling', { debounceTimeout: 50 });
-        this.outputLaser = new Gpio(27, 'in', 'falling', { debounceTimeout: 50 });
+    console.log('[GPIO] Raspberry Pi 5 mimarisi için gpiomon başlatılıyor...');
+    
+    // Physical Pi pins: GPIO 17 for input, GPIO 27 for output
+    // On Pi 5, the main header is on gpiochip4
+    this.startMonitoring(17, 'input');
+    this.startMonitoring(27, 'output');
+  }
 
-        this.inputLaser.watch((err, value) => {
-          if (err) console.error('[GPIO] Input Laser error', err);
-          else this.onInputDetected();
-        });
+  private startMonitoring(pin: number, type: 'input' | 'output') {
+    // gpiomon --falling --bias pull-up [chip] [pin]
+    // Default chip for Pi 5 header is 4
+    const proc = spawn('gpiomon', ['--falling', '--bias', 'pull-up', '4', pin.toString()]);
 
-        this.outputLaser.watch((err, value) => {
-          if (err) console.error('[GPIO] Output Laser error', err);
-          else this.onOutputDetected();
-        });
+    proc.stdout.on('data', () => {
+      // Any output from gpiomon indicates an event
+      if (type === 'input') this.onInputDetected();
+      else this.onOutputDetected();
+    });
 
-        console.log('[GPIO] Hardware sensors initialized successfully.');
+    proc.stderr.on('data', (data) => {
+      console.error(`[GPIO Error] Pin ${pin}:`, data.toString());
+    });
+
+    proc.on('error', (err: any) => {
+      if (err.code === 'ENOENT') {
+        console.error('[GPIO] HATA: "gpiomon" bulunamadı! Lütfen Pi 5 üzerinde "sudo apt install gpiod" komutunu çalıştırın.');
       } else {
-        console.warn('[GPIO] Hardware not accessible (Running on Mac/Windows). Simulating sensors...');
+        console.error(`[GPIO] Pin ${pin} izleme hatası:`, err);
       }
-    } catch (e) {
-      console.warn('[GPIO] Error initializing GPIO, falling back to simulation:', e);
-    }
+    });
+
+    if (type === 'input') this.inputProcess = proc;
+    else this.outputProcess = proc;
   }
 
   // Simulated triggers for development/testing without hardware
@@ -50,7 +60,8 @@ export class GPIOManager {
   }
 
   public cleanup() {
-    if (this.inputLaser) this.inputLaser.unexport();
-    if (this.outputLaser) this.outputLaser.unexport();
+    if (this.inputProcess) this.inputProcess.kill();
+    if (this.outputProcess) this.outputProcess.kill();
+    console.log('[GPIO] İzleme süreçleri sonlandırıldı.');
   }
 }
