@@ -22,9 +22,9 @@ export class GPIOManager {
   }
 
   private startMonitoring(pin: number, type: 'input' | 'output') {
-    // gpiomon --falling --bias pull-up [chip] [pin]
-    // Default chip for Pi 5 header is 4
-    const proc = spawn('gpiomon', ['--falling', '--bias', 'pull-up', '4', pin.toString()]);
+    // gpiomon --edges falling --bias pull-up [chip] [pin]
+    // Default chip for Pi 5 header is 4. Using -e and -b for compatibility.
+    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'pull-up', '4', pin.toString()]);
 
     proc.stdout.on('data', () => {
       // Any output from gpiomon indicates an event
