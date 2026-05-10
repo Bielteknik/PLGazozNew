@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-pyserial
-rpi-lgpio
-python-socketio
-uvicorn[standard]
