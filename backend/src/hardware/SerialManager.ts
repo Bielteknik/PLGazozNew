@@ -55,22 +55,32 @@ export class SerialManager {
 
   public sendCommand(id: string, command: string) {
     const port = this.ports.get(id);
+
+    // Echo outgoing command to terminal
+    if (this.onData) {
+      this.onData(id, `-> ${command}`);
+    }
+
     if (port && port.isOpen) {
       port.write(`${command}\n`);
     } else {
-      console.warn(`[Serial] Cannot send command to ${id}, port closed or not connected`);
+      const errorMsg = `ERR: ${id} not connected`;
+      console.warn(`[Serial] ${errorMsg}`);
+      if (this.onData) {
+        this.onData(id, errorMsg);
+      }
     }
   }
 
   // --- Helpers for Protocol ---
-  
+
   public sendGateCommand(target: 'INPUT' | 'OUTPUT', state: 'OPEN' | 'CLOSE') {
     // We assume NANO-1 is always the gate controller
     // G1 = INPUT (Gate 1), G2 = OUTPUT (Gate 2)
     // 100 = OPEN, 0 = CLOSE
     const gateId = (target === 'INPUT') ? 1 : 2;
     const pos = (state === 'OPEN') ? 100 : 0;
-    
+
     this.sendCommand('NANO-1', `G${gateId}:${pos}`);
   }
 
@@ -88,7 +98,7 @@ export class SerialManager {
       // In case we read optical limits from NANO-1
       console.log(`[Serial SENSOR] ${id}: ${data}`);
     }
-    
+
     // Broadcast raw data for terminal
     if (this.onData) {
       this.onData(id, data);
