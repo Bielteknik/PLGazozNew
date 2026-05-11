@@ -1,9 +1,7 @@
 import serial
 import serial.tools.list_ports
 import time
-import threading
-from gpiozero import Button
-import sys
+import os
 
 class HardwareManager:
     def __init__(self):
@@ -76,45 +74,70 @@ class HardwareManager:
         self.send_command("VALVE_CMD:ALL:OFF")
 
     def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
-        """sensors: DB'den gelen sensör listesi. Varsa pinleri oradan okur."""
+        """
+        Pi 5 için lgpio kullanarak GPIO ayarla.
+        Sensör davranışı: Boşken 3V (HIGH), şişe gelince 0V (LOW) → FALLING_EDGE say.
+        """
         try:
-            # Pinleri sensör config'den al, yoksa varsayılanı kullan
+            import lgpio
+            self.gpio_h = lgpio.gpiochip_open(0)
+
+            # Pinleri sensör config'den belirle
+            in_pin = input_pin
+            out_pin = output_pin
             if sensors:
                 for s in sensors:
                     if s.get("device") == "RASPI" and s.get("enabled"):
                         pin = int(s.get("pin", 0))
                         if not pin:
                             continue
-                        pull_up = s.get("resistorType") != "PULLDOWN"
-                        btn = Button(pin, pull_up=pull_up, bounce_time=s.get("debounceMs", 50) / 1000.0)
                         if s.get("type") == "INPUT":
-                            btn.when_pressed = self._handle_input
-                            self.sensors['input'] = btn
+                            in_pin = pin
                         else:
-                            btn.when_pressed = self._handle_output
-                            self.sensors['output'] = btn
-                        print(f"[GPIO] Sensör aktif: {s.get('name')} → Pin {pin}")
-            else:
-                # Varsayılan pinler
-                self.sensors['input'] = Button(input_pin, pull_up=True, bounce_time=0.05)
-                self.sensors['input'].when_pressed = self._handle_input
-                self.sensors['output'] = Button(output_pin, pull_up=True, bounce_time=0.05)
-                self.sensors['output'].when_pressed = self._handle_output
-                print(f"[GPIO] Sensörler hazırlandı: Giriş(P{input_pin}), Çıkış(P{output_pin})")
+                            out_pin = pin
+
+            # GPIO pinlerini giriş olarak tanımla
+            lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
+            lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
+
+            # FALLING_EDGE (3V→0V): Şişe lazeri kestiği an
+            self._gpio_cb_in = lgpio.callback(
+                self.gpio_h, in_pin, lgpio.FALLING_EDGE,
+                lambda chip, gpio, level, tick: self._handle_input()
+            )
+            self._gpio_cb_out = lgpio.callback(
+                self.gpio_h, out_pin, lgpio.FALLING_EDGE,
+                lambda chip, gpio, level, tick: self._handle_output()
+            )
+
+            print(f"[GPIO] lgpio aktif: Giriş=GPIO{in_pin}, Çıkış=GPIO{out_pin}")
+
+        except ImportError:
+            print("[GPIO] lgpio bulunamadı! Pi 5'te 'pip install lgpio' çalıştırın.")
         except Exception as e:
             print(f"[GPIO] Kurulum Hatası: {e}")
 
     def _handle_input(self):
+        print("[GPIO] Giriş Lazeri tetiklendi!")
         if self.on_input_detected:
             self.on_input_detected()
 
     def _handle_output(self):
+        print("[GPIO] Çıkış Lazeri tetiklendi!")
         if self.on_output_detected:
             self.on_output_detected()
 
     def cleanup(self):
         if self.serial_conn:
             self.serial_conn.close()
-        for s in self.sensors.values():
-            s.close()
+        try:
+            import lgpio
+            if hasattr(self, '_gpio_cb_in'):
+                self._gpio_cb_in.cancel()
+            if hasattr(self, '_gpio_cb_out'):
+                self._gpio_cb_out.cancel()
+            if hasattr(self, 'gpio_h'):
+                lgpio.gpiochip_close(self.gpio_h)
+        except Exception:
+            pass
         print("[Hardware] Temizlik tamamlandı.")
