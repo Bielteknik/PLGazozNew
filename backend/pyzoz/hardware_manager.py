@@ -75,17 +75,32 @@ class HardwareManager:
     def all_off(self):
         self.send_command("VALVE_CMD:ALL:OFF")
 
-    def setup_gpio(self, input_pin=17, output_pin=27):
+    def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
+        """sensors: DB'den gelen sensör listesi. Varsa pinleri oradan okur."""
         try:
-            # Giriş Sensörü (Lazer 1)
-            self.sensors['input'] = Button(input_pin, pull_up=True, bounce_time=0.2)
-            self.sensors['input'].when_pressed = self._handle_input
-            
-            # Çıkış Sensörü (Lazer 2)
-            self.sensors['output'] = Button(output_pin, pull_up=True, bounce_time=0.2)
-            self.sensors['output'].when_pressed = self._handle_output
-            
-            print(f"[GPIO] Sensörler hazırlandı: Giriş(P{input_pin}), Çıkış(P{output_pin})")
+            # Pinleri sensör config'den al, yoksa varsayılanı kullan
+            if sensors:
+                for s in sensors:
+                    if s.get("device") == "RASPI" and s.get("enabled"):
+                        pin = int(s.get("pin", 0))
+                        if not pin:
+                            continue
+                        pull_up = s.get("resistorType") != "PULLDOWN"
+                        btn = Button(pin, pull_up=pull_up, bounce_time=s.get("debounceMs", 50) / 1000.0)
+                        if s.get("type") == "INPUT":
+                            btn.when_pressed = self._handle_input
+                            self.sensors['input'] = btn
+                        else:
+                            btn.when_pressed = self._handle_output
+                            self.sensors['output'] = btn
+                        print(f"[GPIO] Sensör aktif: {s.get('name')} → Pin {pin}")
+            else:
+                # Varsayılan pinler
+                self.sensors['input'] = Button(input_pin, pull_up=True, bounce_time=0.05)
+                self.sensors['input'].when_pressed = self._handle_input
+                self.sensors['output'] = Button(output_pin, pull_up=True, bounce_time=0.05)
+                self.sensors['output'].when_pressed = self._handle_output
+                print(f"[GPIO] Sensörler hazırlandı: Giriş(P{input_pin}), Çıkış(P{output_pin})")
         except Exception as e:
             print(f"[GPIO] Kurulum Hatası: {e}")
 

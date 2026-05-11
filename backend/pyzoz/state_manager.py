@@ -82,6 +82,13 @@ class StateManager:
                 v["isOpen"] = not v.get("isOpen", False)
                 state_str = "AÇIK" if v["isOpen"] else "KAPALI"
                 self.log(f"Valf {valve_id} Manuel: {state_str}")
-                # Donanıma gönder
                 self.hw.control_valve(v["pin"], v["isOpen"])
                 break
+
+    def increment_input(self):
+        self.data["inputCount"] += 1
+        self.log(f"Giriş Lazeri: {self.data['inputCount']}")
+
+    def increment_output(self):
+        self.data["outputCount"] += 1
+        self.log(f"Çıkış Lazeri: {self.data['outputCount']}")
