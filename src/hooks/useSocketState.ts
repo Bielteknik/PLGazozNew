@@ -77,7 +77,13 @@ export function useSocketState() {
     updateGate: (id: string, updates: Partial<GateState>) => emitAction('UPDATE_GATE', { id, updates }),
     updateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<GateState>) => emitAction('UPDATE_SYSTEM_GATE', { target, updates }),
     toggleSensorEnabled: (id: string) => emitAction('TOGGLE_SENSOR_ENABLED', { id }),
-    addSensor: () => emitAction('ADD_SENSOR', { sensor: { id: `SENS-${Date.now()}`, name: 'Yeni Sensör', type: 'INPUT', pin: '0', enabled: true } }),
+    addSensor: () => {
+      const hasIn = data.sensors.some(s => s.id === 'SENS-IN');
+      const sensor = !hasIn 
+        ? { id: 'SENS-IN', name: 'Giriş Lazeri', type: 'INPUT', pin: '17', enabled: true, device: 'RASPI' as const }
+        : { id: 'SENS-OUT', name: 'Çıkış Lazeri', type: 'OUTPUT', pin: '27', enabled: true, device: 'RASPI' as const };
+      emitAction('ADD_SENSOR', { sensor });
+    },
     removeSensor: (id: string) => emitAction('REMOVE_SENSOR', { id }),
     addGate: () => emitAction('ADD_GATE', { gate: { id: `GATE-${Date.now()}`, name: 'Yeni Kilit', pin: '0', isOpen: false, enabled: true, position: 0 } }),
     removeGate: (id: string) => emitAction('REMOVE_GATE', { id }),
