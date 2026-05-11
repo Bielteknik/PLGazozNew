@@ -14,11 +14,18 @@ class StateManager:
             "activeAlerts": [],
             "terminalLogs": [],
             "valves": self.db.get_state("valves") or [],
+            "sensors": self.db.get_state("sensors") or [],
+            "nanos": self.db.get_state("nanos") or [],
             "config": self.db.get_state("config") or {},
             "recipes": self.db.get_recipes(),
-            "inputGate": self.db.get_state("inputGate") or {"isOpen": False},
-            "outputGate": self.db.get_state("outputGate") or {"isOpen": False},
-            "cycleHistory": self.db.get_cycle_history()
+            "inputGate": self.db.get_state("inputGate") or {"isOpen": False, "enabled": True, "position": 0},
+            "outputGate": self.db.get_state("outputGate") or {"isOpen": False, "enabled": True, "position": 0},
+            "extraGates": self.db.get_state("extraGates") or [],
+            "cycleHistory": self.db.get_cycle_history(),
+            "isWashingDone": False,
+            "isWashingRequired": False,
+            "stopAfterCycleRequested": False,
+            "activePrompt": None
         }
         self.on_state_change = None
         self.cycle_thread = None
