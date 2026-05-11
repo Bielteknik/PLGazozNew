@@ -13,95 +13,66 @@ export class GPIOManager {
   }
 
   private initGPIO() {
-    console.log('[GPIO] Raspberry Pi 5 mimarisi için gpiomon başlatılıyor...');
+    console.log('[GPIO] Raspberry Pi 5 mimarisi için Python Köprüsü başlatılıyor...');
     
-    // Eski gpiomon süreçlerini temizle
+    // Eski süreçleri temizle
     try {
+      execSync('pkill -f gpio_monitor.py');
       execSync('pkill gpiomon');
     } catch (e) {}
     
-    // SADECE takılı olan Pin 17'yi izle. 
-    // Pin 27 kablosu takılı olmadığı ve parazit yaptığı için devre dışı bırakıldı.
+    // Sadece takılı olan Pin 17'yi başlat
     this.startMonitoring(17, 'input');
   }
 
   private lastTriggerTimes: Record<number, number> = {};
 
   private startMonitoring(pin: number, type: 'input' | 'output') {
-    // '-b pull-up' parametresi bağlı olmayan veya gürültülü pinlerin kararlı kalması için gereklidir.
-    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
+    if (pin !== 17) return;
+
+    const pythonPath = __dirname + '/gpio_monitor.py';
+    const proc = spawn('python3', [pythonPath]);
 
     proc.stdout.on('data', (data) => {
-      // Gelen veriyi satır satır ayır (Her satır bir sinyaldir)
-      const lines = data.toString().split('\n').filter((l: string) => l.trim());
+      const msg = data.toString().trim();
       
-      lines.forEach(() => {
+      if (msg.includes('DETECTED')) {
         const now = Date.now();
-        // 1500ms'den daha hızlı gelen sinyalleri görmezden gel (Ekstra Güçlü Gürültü Filtresi)
-        if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 1500)) {
+        if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 1200)) {
           return;
         }
         this.lastTriggerTimes[pin] = now;
         
-        if (type === 'input') {
-          console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Hareket Algılandı`);
-          this.onInputDetected();
-        } else {
-          console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Hareket Algılandı`);
-          this.onOutputDetected();
-        }
-      });
+        console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Hareket Algılandı`);
+        this.onInputDetected();
+      }
     });
 
     proc.stderr.on('data', (data) => {
-      const err = data.toString();
-      if (err.includes('invalid bias')) {
-        // Eğer işletim sistemi sürümü pull-up desteklemezse yedek yönteme geç
-        console.warn(`[GPIO Uyarı] Pin ${pin}: Pull-up direnci ayarlanamadı, bias olmadan tekrar deneniyor.`);
-        this.startMonitoringSimple(pin, type);
-        proc.kill();
-      } else {
-        console.error(`[GPIO Hatası] Pin ${pin}:`, err);
-      }
+      console.error(`[GPIO Python Hatası]:`, data.toString());
     });
 
     proc.on('error', (err: any) => {
-      if (err.code === 'ENOENT') {
-        console.error('[GPIO] HATA: "gpiomon" komutu bulunamadı! Lütfen Pi 5 üzerinde "sudo apt install gpiod" çalıştırın.');
-      } else {
-        console.error(`[GPIO] Pin ${pin} izleme hatası:`, err);
-      }
+      console.error(`[GPIO Süreç Hatası]:`, err);
     });
 
     if (type === 'input') this.inputProcess = proc;
     else this.outputProcess = proc;
   }
 
-  // Fallback method
-  private startMonitoringSimple(pin: number, type: 'input' | 'output') {
-    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
-    proc.stdout.on('data', () => {
-       if (type === 'input') this.onInputDetected();
-       else this.onOutputDetected();
-    });
-    if (type === 'input') this.inputProcess = proc;
-    else this.outputProcess = proc;
-  }
-
-  // Simulated triggers for development/testing without hardware
   public triggerInputMock() {
-    console.log('[GPIO MOCK] Input Detected');
     this.onInputDetected();
   }
 
   public triggerOutputMock() {
-    console.log('[GPIO MOCK] Output Detected');
     this.onOutputDetected();
   }
 
   public cleanup() {
     if (this.inputProcess) this.inputProcess.kill();
     if (this.outputProcess) this.outputProcess.kill();
-    console.log('[GPIO] İzleme süreçleri sonlandırıldı.');
+    try {
+      execSync('pkill -f gpio_monitor.py');
+    } catch (e) {}
   }
 }
