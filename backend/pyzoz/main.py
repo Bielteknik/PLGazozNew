@@ -15,27 +15,30 @@ app = FastAPI()
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio, app)
 
+# Ana event loop'u saklamak için değişken
+main_loop = None
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 db = DatabaseManager()
 hw = HardwareManager()
 state = StateManager(db, hw)
 
-# Donanım başlat (hata olsa da devam et)
+# Donanım başlat
 hw.connect_serial()
 hw.setup_gpio(sensors=state.data.get("sensors", []))
 
-# GPIO callback'lerini state manager'a bağla ve arayüzü anında güncelle
-def on_input():
-    state.increment_input()
-    asyncio.run_coroutine_threadsafe(sio.emit('STATE_UPDATE', state.data), asyncio.get_event_loop())
+# Arayüze güvenli veri gönderme (Thread-Safe)
+def safe_emit():
+    if main_loop and main_loop.is_running():
+        main_loop.call_soon_threadsafe(
+            lambda: asyncio.create_task(sio.emit('STATE_UPDATE', state.data))
+        )
 
-def on_output():
-    state.increment_output()
-    asyncio.run_coroutine_threadsafe(sio.emit('STATE_UPDATE', state.data), asyncio.get_event_loop())
+# GPIO callback'lerini bağla
+hw.on_input_detected = lambda: safe_emit() or state.increment_input()
+hw.on_output_detected = lambda: safe_emit() or state.increment_output()
 
-hw.on_input_detected = on_input
-hw.on_output_detected = on_output
 
 # --- Yardımcı ---
 def refresh_ports():
@@ -219,6 +222,8 @@ async def broadcast_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    global main_loop
+    main_loop = asyncio.get_event_loop()
     asyncio.create_task(broadcast_loop())
 
 if __name__ == "__main__":
