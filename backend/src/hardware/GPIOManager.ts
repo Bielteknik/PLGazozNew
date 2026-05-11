@@ -21,29 +21,60 @@ export class GPIOManager {
     this.startMonitoring(27, 'output');
   }
 
+  private lastTriggerTimes: Record<number, number> = {};
+
   private startMonitoring(pin: number, type: 'input' | 'output') {
-    // Pi 5 için çip ismini 'gpiochip4' olarak tam belirtiyoruz.
-    // gpiomon -e falling -b none --chip gpiochip4 [pin]
-    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
+    // '-b pull-up' parametresi bağlı olmayan pinlerin gürültü (noise) yapmasını önlemek için KRİTİKTİR.
+    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
 
     proc.stdout.on('data', () => {
-      console.log(`[GPIO] Pin ${pin} (${type}) üzerinde fiziksel hareket algılandı!`);
-      if (type === 'input') this.onInputDetected();
-      else this.onOutputDetected();
+      const now = Date.now();
+      // 250ms'den daha hızlı gelen sinyalleri görmezden gel (Yazılımsal Filtre/Debounce)
+      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 250)) {
+        return;
+      }
+      this.lastTriggerTimes[pin] = now;
+      
+      if (type === 'input') {
+        console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Tetiklendi`);
+        this.onInputDetected();
+      } else {
+        console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Tetiklendi`);
+        this.onOutputDetected();
+      }
     });
 
     proc.stderr.on('data', (data) => {
-      console.error(`[GPIO Error] Pin ${pin}:`, data.toString());
+      const err = data.toString();
+      if (err.includes('invalid bias')) {
+        // Eğer işletim sistemi sürümü pull-up desteklemezse yedek yönteme geç
+        console.warn(`[GPIO Uyarı] Pin ${pin}: Pull-up direnci ayarlanamadı, bias olmadan tekrar deneniyor.`);
+        this.startMonitoringSimple(pin, type);
+        proc.kill();
+      } else {
+        console.error(`[GPIO Hatası] Pin ${pin}:`, err);
+      }
     });
 
     proc.on('error', (err: any) => {
       if (err.code === 'ENOENT') {
-        console.error('[GPIO] HATA: "gpiomon" bulunamadı! Lütfen Pi 5 üzerinde "sudo apt install gpiod" komutunu çalıştırın.');
+        console.error('[GPIO] HATA: "gpiomon" komutu bulunamadı! Lütfen Pi 5 üzerinde "sudo apt install gpiod" çalıştırın.');
       } else {
         console.error(`[GPIO] Pin ${pin} izleme hatası:`, err);
       }
     });
 
+    if (type === 'input') this.inputProcess = proc;
+    else this.outputProcess = proc;
+  }
+
+  // Fallback method
+  private startMonitoringSimple(pin: number, type: 'input' | 'output') {
+    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
+    proc.stdout.on('data', () => {
+       if (type === 'input') this.onInputDetected();
+       else this.onOutputDetected();
+    });
     if (type === 'input') this.inputProcess = proc;
     else this.outputProcess = proc;
   }
