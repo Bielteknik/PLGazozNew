@@ -87,19 +87,24 @@ export class SerialManager {
 
   // --- Helpers for Protocol ---
 
+  private getTargetNano(defaultId: string): string {
+    if (this.ports.has(defaultId)) return defaultId;
+    // Fallback: find any connected NANO
+    const anyNano = Array.from(this.ports.keys()).find(id => id.includes('NANO'));
+    return anyNano || defaultId;
+  }
+
   public sendGateCommand(target: 'INPUT' | 'OUTPUT', state: 'OPEN' | 'CLOSE') {
-    // We assume NANO-1 is always the gate controller
-    // G1 = INPUT (Gate 1), G2 = OUTPUT (Gate 2)
-    // 100 = OPEN, 0 = CLOSE
+    const nanoId = this.getTargetNano('NANO-1');
     const gateId = (target === 'INPUT') ? 1 : 2;
     const pos = (state === 'OPEN') ? 100 : 0;
 
-    this.sendCommand('NANO-1', `G${gateId}:${pos}`);
+    this.sendCommand(nanoId, `G${gateId}:${pos}`);
   }
 
   public sendValveCommand(valveId: number | 'ALL', state: 'ON' | 'OFF') {
-    // We assume NANO-2 is always the valve controller
-    this.sendCommand('NANO-2', `VALVE_CMD:${valveId}:${state}`);
+    const nanoId = this.getTargetNano('NANO-2');
+    this.sendCommand(nanoId, `VALVE_CMD:${valveId}:${state}`);
   }
 
   private handleIncomingData(id: string, data: string) {
