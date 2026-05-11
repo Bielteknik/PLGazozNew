@@ -27,7 +27,7 @@ class HardwareManager:
                 
         return list(set(ports))
 
-    def connect_serial(self, port='/dev/ttyUSB0', baudrate=115200):
+    def connect_serial(self, port='/dev/ttyUSB0', baudrate=9600):
         try:
             self.serial_conn = serial.Serial(port, baudrate, timeout=1)
             print(f"[Serial] Bağlandı: {port}")
@@ -36,7 +36,7 @@ class HardwareManager:
             print(f"[Serial] Hata ({port}): {e}")
             return False
 
-    def connect_to_port(self, port, baudrate=115200):
+    def connect_to_port(self, port, baudrate=9600):
         """Belirtilen porta bağlanmayı dene. Başarılıysa True döndür."""
         try:
             # Mevcut bağlantıyı kapat
@@ -64,7 +64,8 @@ class HardwareManager:
 
     def control_valve(self, pin, state):
         """Standardized method used by StateManager"""
-        cmd = f"VALVE:{pin}:{'ON' if state else 'OFF'}"
+        # Arduino sketch VALVE_CMD:pin:ON/OFF formatını bekliyor
+        cmd = f"VALVE_CMD:{pin}:{'ON' if state else 'OFF'}"
         self.send_command(cmd)
 
     def toggle_valve(self, pin, state):
@@ -72,7 +73,7 @@ class HardwareManager:
         self.control_valve(pin, state)
 
     def all_off(self):
-        self.send_command("ALL:OFF")
+        self.send_command("VALVE_CMD:ALL:OFF")
 
     def setup_gpio(self, input_pin=17, output_pin=27):
         try:

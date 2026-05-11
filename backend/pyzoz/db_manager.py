@@ -106,7 +106,7 @@ class DatabaseManager:
         cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("sensors", json.dumps(default_sensors)))
 
         default_nanos = [
-            {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 115200}
+            {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 9600}
         ]
         cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("nanos", json.dumps(default_nanos)))
 

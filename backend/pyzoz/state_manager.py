@@ -11,7 +11,7 @@ class StateManager:
             "outputCount": 0,
             "valves": self.db.get_state("valves") or [],
             "nanos": self.db.get_state("nanos") or [
-                {"id": "NANO-01", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 5, "baudRate": 115200}
+                {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 9600}
             ],
             "sensors": self.db.get_state("sensors") or [],
             "terminalLogs": ["Python Backend Hazır.", "Sistem başlatılıyor..."],
