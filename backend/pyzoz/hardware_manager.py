@@ -28,15 +28,23 @@ class HardwareManager:
     def send_command(self, cmd):
         if self.serial_conn and self.serial_conn.is_open:
             try:
-                full_cmd = f"{cmd}\n"
+                full_cmd = f"{cmd}\n" if not cmd.endswith('\n') else cmd
                 self.serial_conn.write(full_cmd.encode())
-                # print(f"[Serial] Komut Gönderildi: {cmd}")
             except Exception as e:
                 print(f"[Serial] Yazma Hatası: {e}")
 
-    def toggle_valve(self, pin, state):
+    def send_serial(self, cmd):
+        """Alias for send_command used in main.py"""
+        self.send_command(cmd)
+
+    def control_valve(self, pin, state):
+        """Standardized method used by StateManager"""
         cmd = f"VALVE:{pin}:{'ON' if state else 'OFF'}"
         self.send_command(cmd)
+
+    def toggle_valve(self, pin, state):
+        """Alias for control_valve"""
+        self.control_valve(pin, state)
 
     def all_off(self):
         self.send_command("ALL:OFF")
