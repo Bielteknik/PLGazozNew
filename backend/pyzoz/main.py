@@ -209,6 +209,9 @@ async def handle_action(sid, data):
 # --- Arka Plan Döngüsü ---
 async def broadcast_loop():
     while True:
+        # Serial'den gelen sensör veya ACK bilgilerini oku
+        hw.update()
+        
         state.data["serialPorts"] = refresh_ports()
         
         # Nano bağlantı durumlarını kontrol et

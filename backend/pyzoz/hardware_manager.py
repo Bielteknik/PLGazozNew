@@ -56,9 +56,21 @@ class HardwareManager:
             except Exception as e:
                 print(f"[Serial] Yazma Hatası: {e}")
 
-    def send_serial(self, cmd):
-        """Alias for send_command used in main.py"""
-        self.send_command(cmd)
+    def update(self):
+        """Serial'den gelen verileri oku ve işle. Periyodik çağrılmalı."""
+        if self.serial_conn and self.serial_conn.is_open and self.serial_conn.in_waiting > 0:
+            try:
+                line = self.serial_conn.readline().decode().strip()
+                if line == "SENS:IN":
+                    print("[Arduino] Giriş Sensörü Tetiklendi")
+                    self._handle_input()
+                elif line == "SENS:OUT":
+                    print("[Arduino] Çıkış Sensörü Tetiklendi")
+                    self._handle_output()
+                elif line.startswith("ACK:"):
+                    print(f"[Arduino] Geri Bildirim: {line}")
+            except Exception as e:
+                print(f"[Serial] Okuma Hatası: {e}")
 
     def control_valve(self, pin, state):
         """Standardized method used by StateManager"""
