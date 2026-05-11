@@ -24,7 +24,7 @@ export class GPIOManager {
   private startMonitoring(pin: number, type: 'input' | 'output') {
     // Pi 5 için çip ismini 'gpiochip4' olarak tam belirtiyoruz.
     // gpiomon -e falling -b none --chip gpiochip4 [pin]
-    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'none', '--chip', 'gpiochip4', pin.toString()]);
+    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
 
     proc.stdout.on('data', () => {
       // Any output from gpiomon indicates an event
