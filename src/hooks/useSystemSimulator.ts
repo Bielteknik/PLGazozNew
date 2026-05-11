@@ -8,17 +8,9 @@ export const INITIAL_STATE: SystemData = {
   inputCount: 0,
   outputCount: 0,
   
-  valves: Array.from({ length: 9 }, (_, i) => ({
-    id: i + 1,
-    isOpen: false,
-    enabled: true,
-    mode: 'CONTINUOUS' as const
-  })),
+  valves: [],
   nanos: [],
-  sensors: [
-    { id: 'SENS-IN', name: 'Giriş Lazeri (P17)', type: 'OPTICAL', enabled: true, status: 'ONLINE' as const, pin: '17' },
-    { id: 'SENS-OUT', name: 'Çıkış Lazeri (P27)', type: 'OPTICAL', enabled: true, status: 'ONLINE' as const, pin: '27' }
-  ],
+  sensors: [],
   terminalLogs: ['Sistem Hazır. Lütfen donanım birimlerini tanımlayın.'],
   inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true },
   outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true },

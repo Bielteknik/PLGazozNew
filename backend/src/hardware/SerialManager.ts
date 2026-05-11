@@ -10,11 +10,12 @@ export class SerialManager {
     this.scanPorts();
   }
 
-  public async scanPorts() {
+  public async scanPorts(): Promise<string[]> {
     try {
       const available = await SerialPort.list();
-      console.log('[Serial] Available ports:', available.map(p => p.path));
-      return available;
+      const paths = available.map(p => p.path);
+      console.log('[Serial] Available system ports:', paths);
+      return paths;
     } catch (err) {
       console.error('[Serial] Error scanning ports:', err);
       return [];

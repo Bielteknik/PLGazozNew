@@ -92,6 +92,11 @@ io.on('connection', (socket) => {
       serialManager.sendCommand(nanoId, data);
     }
   });
+
+  socket.on('SCAN_PORTS', async () => {
+    const ports = await serialManager.scanPorts();
+    socket.emit('AVAILABLE_PORTS', ports);
+  });
 });
 
 // Serve frontend build if configured

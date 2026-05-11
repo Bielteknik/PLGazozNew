@@ -32,7 +32,7 @@ interface HardwareProps {
 export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onToggleHardwareStatus, onSendNanoCommand, onUpdateNanoConfig, onUpdateValve, onUpdateSensor, onUpdateGate, onUpdateSystemGate, onToggleSensorEnabled, onToggleGateEnabled, onAddSensor, onRemoveSensor, onAddGate, onRemoveGate, onToggleExtraGateEnabled, onAddNano, onRemoveNano }: HardwareProps) {
   const [cmdInput, setCmdInput] = useState('');
   const [selectedNano, setSelectedNano] = useState(data.nanos?.[0]?.id || 'ALL');
-  const [availablePorts, setAvailablePorts] = useState<string[]>(['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyACM0', 'COM3', 'COM4']);
+  const [availablePorts, setAvailablePorts] = useState<string[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [editingValveId, setEditingValveId] = useState<number | null>(null);
   const [tempValveName, setTempValveName] = useState("");
@@ -110,12 +110,21 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
     }
   }, [socket, activeTab, activeNanoId]);
 
-  const handleScan = () => {
-     setIsScanning(true);
-     setTimeout(() => {
-        setAvailablePorts(['/dev/ttyUSB0', '/dev/ttyUSB1', '/dev/ttyUSB2', '/dev/ttyACM0', 'COM1', 'COM3', 'COM4', 'COM5']);
+  useEffect(() => {
+    if (socket) {
+      socket.on('AVAILABLE_PORTS', (ports: string[]) => {
+        setAvailablePorts(ports);
         setIsScanning(false);
-     }, 1500);
+      });
+      // İlk açılışta bir kez tara
+      socket.emit('SCAN_PORTS');
+    }
+  }, [socket]);
+
+  const handleScan = () => {
+     if (!socket) return;
+     setIsScanning(true);
+     socket.emit('SCAN_PORTS');
   };
 
   const handleCommandSubmit = (e: React.FormEvent) => {
