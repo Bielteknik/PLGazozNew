@@ -21,7 +21,7 @@ AccelStepper stepper1(AccelStepper::DRIVER, gate1.stepPin, gate1.dirPin);
 AccelStepper stepper2(AccelStepper::DRIVER, gate2.stepPin, gate2.dirPin);
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   
   pinMode(gate1.enaPin, OUTPUT);
   pinMode(gate2.enaPin, OUTPUT);
