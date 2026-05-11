@@ -7,15 +7,20 @@ pkill -f node || true
 pkill -f vite || true
 
 # Direct path to the project
-PROJECT_PATH="/run/media/bielteknik/SDD250/ejderProjects/PLGazoz"
+PROJECT_PATH="/home/bielteknik/PLGazozNew"
 cd "$PROJECT_PATH"
 
 # Startup message
 echo "Palandöken Gazoz HMI Başlatılıyor..."
 
 # Run development server
-# Using absolute path for npm might be safer
+echo "Frontend başlatılıyor..."
 npm run dev &
+
+# Run backend
+echo "Backend başlatılıyor..."
+cd backend && source pzoz/bin/activate && python3 main.py &
+cd ..
 
 # Wait for readiness
 echo "Servislerin ayağa kalkması bekleniyor (15 sn)..."

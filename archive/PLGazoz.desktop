@@ -1,9 +1,9 @@
 [Desktop Entry]
 Name=PLGazoz HMI
 Comment=Palandöken Gazoz Otomasyon Sistemi
-Exec=bash /run/media/bielteknik/SDD250/ejderProjects/PLGazoz/start_hmi.sh
+Exec=bash /home/bielteknik/PLGazozNew/start_hmi.sh
 Icon=system-run
 Terminal=true
 Type=Application
 Categories=Utility;Development;
-Path=/run/media/bielteknik/SDD250/ejderProjects/PLGazoz
+Path=/home/bielteknik/PLGazozNew

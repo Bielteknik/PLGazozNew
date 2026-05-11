@@ -8,11 +8,11 @@ echo "------------------------------------------"
 
 # 1. Backend'i Arka Planda Başlat
 echo "[1/2] Python Backend başlatılıyor..."
-source backend/pyzoz/pzoz/bin/activate
-cd backend/pyzoz
+source backend/pzoz/bin/activate
+cd backend
 python3 main.py &
 BACKEND_PID=$!
-cd ../..
+cd ..
 
 # 2. Frontend'i Başlat
 echo "[2/2] React Arayüzü başlatılıyor..."
