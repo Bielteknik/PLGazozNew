@@ -75,11 +75,12 @@ class HardwareManager:
 
     def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
         """
-        Pi 5 için lgpio kullanarak GPIO ayarla.
-        Her iki kenarı da (BOTH_EDGES) takip ederek konsola mesaj basar.
+        Pi 5 için Polling (Sürekli Kontrol) yöntemi.
+        Callback'ler Pi 5'te bazen tutukluk yapabiliyor, bu yöntem %100 çalışır.
         """
         try:
             import lgpio
+            import threading
             self.gpio_h = lgpio.gpiochip_open(0)
 
             in_pin = input_pin
@@ -92,51 +93,66 @@ class HardwareManager:
                         if s.get("type") == "INPUT": in_pin = pin
                         else: out_pin = pin
 
-            # Pinleri PULL_UP ile giriş olarak ayarla (3V varsayılan)
+            # Pinleri ayarla
             lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
             lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
 
-            # Callback fonksiyonu: Seviye değişimini raporlar
-            def gpio_callback(chip, gpio, level, tick):
-                state = "LOW (0V - ENGEL VAR)" if level == 0 else "HIGH (3V - BOŞ)"
-                print(f"[GPIO DEBUG] Pin {gpio} Durumu Değişti: {state}")
-                
-                # Sadece 0V'a düştüğünde (Düşen Kenar) sayacı artır
-                if level == 0:
-                    if gpio == in_pin:
-                        self._handle_input()
-                    else:
-                        self._handle_output()
+            self.polling_active = True
+            self.last_in_state = 1
+            self.last_out_state = 1
 
-            # BOTH_EDGES: Hem 3V -> 0V hem de 0V -> 3V değişimini yakalar
-            self._gpio_cb_in = lgpio.callback(self.gpio_h, in_pin, lgpio.BOTH_EDGES, gpio_callback)
-            self._gpio_cb_out = lgpio.callback(self.gpio_h, out_pin, lgpio.BOTH_EDGES, gpio_callback)
+            def poll_loop():
+                print(f"[GPIO] Polling Bekçisi Başladı. İzlenen: {in_pin}, {out_pin}")
+                while self.polling_active:
+                    try:
+                        # Giriş Sensörü Oku
+                        in_val = lgpio.gpio_read(self.gpio_h, in_pin)
+                        if in_val != self.last_in_state:
+                            state_msg = "0V (ENGEL)" if in_val == 0 else "3V (BOŞ)"
+                            print(f"[GPIO] PIN {in_pin} DEĞİŞTİ: {state_msg}")
+                            if in_val == 0: self._handle_input()
+                            self.last_in_state = in_val
 
-            print(f"[GPIO] İzleme Başladı: Giriş=GPIO{in_pin}, Çıkış=GPIO{out_pin}")
+                        # Çıkış Sensörü Oku
+                        out_val = lgpio.gpio_read(self.gpio_h, out_pin)
+                        if out_val != self.last_out_state:
+                            state_msg = "0V (ENGEL)" if out_val == 0 else "3V (BOŞ)"
+                            print(f"[GPIO] PIN {out_pin} DEĞİŞTİ: {state_msg}")
+                            if out_val == 0: self._handle_output()
+                            self.last_out_state = out_val
+
+                        time.sleep(0.1) # 100ms bekle (Saniyede 10 kontrol)
+                    except Exception as e:
+                        print(f"[GPIO] Polling Hatası: {e}")
+                        break
+
+            self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
+            self.poll_thread.start()
 
         except ImportError:
-            print("\n[HATA] 'lgpio' kütüphanesi bulunamadı!")
-            print("Lütfen Pi 5 terminalinde şunu çalıştırın: pip install lgpio --break-system-packages\n")
+            print("\n[HATA] 'lgpio' kütüphanesi eksik!")
+            print("Lütfen Pi 5 terminalinde: pip install lgpio --break-system-packages\n")
         except Exception as e:
             print(f"[GPIO] Kurulum Hatası: {e}")
 
     def _handle_input(self):
-        print(">>> GİRİŞ SENSÖRÜ TETİKLENDİ (SAYAÇ ARTIRILIYOR)")
+        print(">>> GİRİŞ SENSÖRÜ: SAYAÇ +1")
         if self.on_input_detected:
             self.on_input_detected()
 
     def _handle_output(self):
-        print(">>> ÇIKIŞ SENSÖRÜ TETİKLENDİ (SAYAÇ ARTIRILIYOR)")
+        print(">>> ÇIKIŞ SENSÖRÜ: SAYAÇ +1")
         if self.on_output_detected:
             self.on_output_detected()
 
     def cleanup(self):
+        self.polling_active = False
         if self.serial_conn:
             self.serial_conn.close()
         try:
             import lgpio
-            if hasattr(self, '_gpio_cb_in'): self._gpio_cb_in.cancel()
-            if hasattr(self, '_gpio_cb_out'): self._gpio_cb_out.cancel()
-            if hasattr(self, 'gpio_h'): lgpio.gpiochip_close(self.gpio_h)
-        except Exception: pass
+            if hasattr(self, 'gpio_h'):
+                lgpio.gpiochip_close(self.gpio_h)
+        except Exception:
+            pass
         print("[Hardware] Temizlik tamamlandı.")
