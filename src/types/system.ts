@@ -57,7 +57,8 @@ export interface SensorState {
   pin: string;
   device?: 'RASPI' | 'NANO';
   connectionId?: string; // Nano ID if device is NANO
-  type?: 'INPUT' | 'OUTPUT';
+  type?: 'INPUT' | 'OUTPUT' | 'OPTICAL';
+  status?: 'ONLINE' | 'OFFLINE' | 'ERROR';
   resistorType?: 'PULLUP' | 'PULLDOWN' | 'NONE';
   debounceMs?: number;
 }

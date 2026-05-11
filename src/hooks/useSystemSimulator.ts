@@ -11,16 +11,19 @@ export const INITIAL_STATE: SystemData = {
   valves: Array.from({ length: 9 }, (_, i) => ({
     id: i + 1,
     isOpen: false,
-  valves: [],
+    enabled: true,
+    mode: 'CONTINUOUS' as const
+  })),
   nanos: [],
   sensors: [
-    { id: 'SENS-IN', name: 'Giriş Lazeri (P17)', type: 'OPTICAL', enabled: true, status: 'ONLINE', pin: 17 },
-    { id: 'SENS-OUT', name: 'Çıkış Lazeri (P27)', type: 'OPTICAL', enabled: true, status: 'ONLINE', pin: 27 }
+    { id: 'SENS-IN', name: 'Giriş Lazeri (P17)', type: 'OPTICAL', enabled: true, status: 'ONLINE' as const, pin: '17' },
+    { id: 'SENS-OUT', name: 'Çıkış Lazeri (P27)', type: 'OPTICAL', enabled: true, status: 'ONLINE' as const, pin: '27' }
   ],
   terminalLogs: ['Sistem Hazır. Lütfen donanım birimlerini tanımlayın.'],
   inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true },
   outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true },
   extraGates: [],
+  cycleHistory: [],
   
   activeAlerts: [
     { id: 'ALR-STARTUP', code: 'SYS_ACTIVE', severity: 'WARNING', message: 'Sistem Aktif', suggestion: 'Üretime başlamak için reçete seçin ve yıkama kontrolü yapın.', timestamp: Date.now(), resolved: false }
@@ -589,7 +592,7 @@ export function useSystemSimulator() {
   useEffect(() => {
     if (data.mode !== 'OTOMATİK') return;
 
-    let timeout: NodeJS.Timeout;
+    let timeout: any;
 
     const transitionTo = (nextState: AutoState, delayMs: number) => {
       timeout = setTimeout(() => {
