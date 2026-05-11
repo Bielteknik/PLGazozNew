@@ -25,10 +25,17 @@ state = StateManager(db, hw)
 hw.connect_serial()
 hw.setup_gpio(sensors=state.data.get("sensors", []))
 
-# GPIO callback'lerini state manager'a bağla
-# Sensör lazer kestiğinde sayaçlar artacak
-hw.on_input_detected = lambda: state.increment_input()
-hw.on_output_detected = lambda: state.increment_output()
+# GPIO callback'lerini state manager'a bağla ve arayüzü anında güncelle
+def on_input():
+    state.increment_input()
+    asyncio.run_coroutine_threadsafe(sio.emit('STATE_UPDATE', state.data), asyncio.get_event_loop())
+
+def on_output():
+    state.increment_output()
+    asyncio.run_coroutine_threadsafe(sio.emit('STATE_UPDATE', state.data), asyncio.get_event_loop())
+
+hw.on_input_detected = on_input
+hw.on_output_detected = on_output
 
 # --- Yardımcı ---
 def refresh_ports():

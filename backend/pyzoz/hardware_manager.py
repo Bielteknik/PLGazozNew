@@ -76,54 +76,57 @@ class HardwareManager:
     def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
         """
         Pi 5 için lgpio kullanarak GPIO ayarla.
-        Sensör davranışı: Boşken 3V (HIGH), şişe gelince 0V (LOW) → FALLING_EDGE say.
+        Her iki kenarı da (BOTH_EDGES) takip ederek konsola mesaj basar.
         """
         try:
             import lgpio
             self.gpio_h = lgpio.gpiochip_open(0)
 
-            # Pinleri sensör config'den belirle
             in_pin = input_pin
             out_pin = output_pin
             if sensors:
                 for s in sensors:
                     if s.get("device") == "RASPI" and s.get("enabled"):
                         pin = int(s.get("pin", 0))
-                        if not pin:
-                            continue
-                        if s.get("type") == "INPUT":
-                            in_pin = pin
-                        else:
-                            out_pin = pin
+                        if not pin: continue
+                        if s.get("type") == "INPUT": in_pin = pin
+                        else: out_pin = pin
 
-            # GPIO pinlerini giriş olarak tanımla
+            # Pinleri PULL_UP ile giriş olarak ayarla (3V varsayılan)
             lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
             lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
 
-            # FALLING_EDGE (3V→0V): Şişe lazeri kestiği an
-            self._gpio_cb_in = lgpio.callback(
-                self.gpio_h, in_pin, lgpio.FALLING_EDGE,
-                lambda chip, gpio, level, tick: self._handle_input()
-            )
-            self._gpio_cb_out = lgpio.callback(
-                self.gpio_h, out_pin, lgpio.FALLING_EDGE,
-                lambda chip, gpio, level, tick: self._handle_output()
-            )
+            # Callback fonksiyonu: Seviye değişimini raporlar
+            def gpio_callback(chip, gpio, level, tick):
+                state = "LOW (0V - ENGEL VAR)" if level == 0 else "HIGH (3V - BOŞ)"
+                print(f"[GPIO DEBUG] Pin {gpio} Durumu Değişti: {state}")
+                
+                # Sadece 0V'a düştüğünde (Düşen Kenar) sayacı artır
+                if level == 0:
+                    if gpio == in_pin:
+                        self._handle_input()
+                    else:
+                        self._handle_output()
 
-            print(f"[GPIO] lgpio aktif: Giriş=GPIO{in_pin}, Çıkış=GPIO{out_pin}")
+            # BOTH_EDGES: Hem 3V -> 0V hem de 0V -> 3V değişimini yakalar
+            self._gpio_cb_in = lgpio.callback(self.gpio_h, in_pin, lgpio.BOTH_EDGES, gpio_callback)
+            self._gpio_cb_out = lgpio.callback(self.gpio_h, out_pin, lgpio.BOTH_EDGES, gpio_callback)
+
+            print(f"[GPIO] İzleme Başladı: Giriş=GPIO{in_pin}, Çıkış=GPIO{out_pin}")
 
         except ImportError:
-            print("[GPIO] lgpio bulunamadı! Pi 5'te 'pip install lgpio' çalıştırın.")
+            print("\n[HATA] 'lgpio' kütüphanesi bulunamadı!")
+            print("Lütfen Pi 5 terminalinde şunu çalıştırın: pip install lgpio --break-system-packages\n")
         except Exception as e:
             print(f"[GPIO] Kurulum Hatası: {e}")
 
     def _handle_input(self):
-        print("[GPIO] Giriş Lazeri tetiklendi!")
+        print(">>> GİRİŞ SENSÖRÜ TETİKLENDİ (SAYAÇ ARTIRILIYOR)")
         if self.on_input_detected:
             self.on_input_detected()
 
     def _handle_output(self):
-        print("[GPIO] Çıkış Lazeri tetiklendi!")
+        print(">>> ÇIKIŞ SENSÖRÜ TETİKLENDİ (SAYAÇ ARTIRILIYOR)")
         if self.on_output_detected:
             self.on_output_detected()
 
@@ -132,12 +135,8 @@ class HardwareManager:
             self.serial_conn.close()
         try:
             import lgpio
-            if hasattr(self, '_gpio_cb_in'):
-                self._gpio_cb_in.cancel()
-            if hasattr(self, '_gpio_cb_out'):
-                self._gpio_cb_out.cancel()
-            if hasattr(self, 'gpio_h'):
-                lgpio.gpiochip_close(self.gpio_h)
-        except Exception:
-            pass
+            if hasattr(self, '_gpio_cb_in'): self._gpio_cb_in.cancel()
+            if hasattr(self, '_gpio_cb_out'): self._gpio_cb_out.cancel()
+            if hasattr(self, 'gpio_h'): lgpio.gpiochip_close(self.gpio_h)
+        except Exception: pass
         print("[Hardware] Temizlik tamamlandı.")
