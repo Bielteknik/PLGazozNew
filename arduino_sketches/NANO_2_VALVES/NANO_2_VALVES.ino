@@ -1,7 +1,5 @@
-
-
 // Valf rölelerinin bağlı olduğu pinler
-const int pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10}; 
+const int pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}; 
 const int numValves = 9;
 
 void setup() {
@@ -21,24 +19,27 @@ void loop() {
     cmd.trim();
     
     if (cmd.startsWith("VALVE_CMD:")) {
-      // Örnek format: VALVE_CMD:1:ON
-      int idx = cmd.indexOf(':', 10);
-      if (idx == -1) return; // Hatalı format
+      // Örnek format: VALVE_CMD:2:ON (2 burada fiziksel pin numarasıdır)
+      int idx = cmd.lastIndexOf(':');
+      if (idx == -1) return;
       
-      String id = cmd.substring(10, idx);
+      String pinStr = cmd.substring(10, idx);
       String stateStr = cmd.substring(idx + 1);
       bool state = (stateStr == "ON");
       
-      if (id == "ALL") {
-        for(int i = 0; i < numValves; i++) {
-          digitalWrite(pins[i], state ? LOW : HIGH); // ON = LOW, OFF = HIGH
+      if (pinStr == "ALL") {
+        // Tanımlı tüm pinleri kapat
+        for(int i = 0; i < (sizeof(pins)/sizeof(pins[0])); i++) {
+          pinMode(pins[i], OUTPUT);
+          digitalWrite(pins[i], HIGH); // Active-Low: HIGH = KAPALI
         }
         Serial.print("ACK:VALVE:ALL:"); Serial.println(stateStr);
       } else {
-        int vId = id.toInt();
-        if(vId >= 1 && vId <= numValves) {
-          digitalWrite(pins[vId-1], state ? LOW : HIGH); // ON = LOW, OFF = HIGH
-          Serial.print("ACK:VALVE:"); Serial.print(vId);
+        int pin = pinStr.toInt();
+        if(pin >= 2 && pin <= 53) { // Geçerli pin aralığı
+          pinMode(pin, OUTPUT);
+          digitalWrite(pin, state ? LOW : HIGH); // ON = LOW, OFF = HIGH
+          Serial.print("ACK:VALVE:PIN:"); Serial.print(pin);
           Serial.print(":"); Serial.println(stateStr);
         }
       }

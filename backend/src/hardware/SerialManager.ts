@@ -111,9 +111,11 @@ export class SerialManager {
     this.sendCommand(nanoId, `G${gateId}:${pos}`);
   }
 
-  public sendValveCommand(valveId: number | 'ALL', state: 'ON' | 'OFF', specificNanoId?: string) {
+  public sendValveCommand(pinOrId: string | number, state: 'ON' | 'OFF', specificNanoId?: string) {
     const nanoId = specificNanoId || this.getTargetNano('NANO-2');
-    this.sendCommand(nanoId, `VALVE_CMD:${valveId}:${state}`);
+    // Extract pin number from string like "D2" -> "2"
+    const pin = typeof pinOrId === 'string' ? pinOrId.replace(/\D/g, '') : pinOrId;
+    this.sendCommand(nanoId, `VALVE_CMD:${pin}:${state}`);
   }
 
   private handleIncomingData(id: string, data: string) {

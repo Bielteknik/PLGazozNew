@@ -299,7 +299,7 @@ export class StateManager {
           const valve = p.valves.find(v => v.id === id);
           if (!valve) return p;
           const newState = !valve.isOpen;
-          this.serial.sendValveCommand(id, newState ? 'ON' : 'OFF', valve.nanoId);
+          this.serial.sendValveCommand(valve.pin || id, newState ? 'ON' : 'OFF', valve.nanoId);
           return {
             ...p,
             valves: p.valves.map(v => v.id === id ? { ...v, isOpen: newState } : v)
@@ -492,7 +492,7 @@ export class StateManager {
         
       case 'DOLUM':
         this.updateData(p => {
-           p.valves.filter(v => v.enabled).forEach(v => this.serial.sendValveCommand(v.id, 'ON'));
+           p.valves.filter(v => v.enabled).forEach(v => this.serial.sendValveCommand(v.pin || v.id, 'ON', v.nanoId));
            return { ...p, valves: p.valves.map(v => ({ ...v, isOpen: v.enabled })) };
         });
         if (this.currentTimeout) clearTimeout(this.currentTimeout);
