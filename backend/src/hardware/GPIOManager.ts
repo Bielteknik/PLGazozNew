@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 
 export class GPIOManager {
   private inputProcess: ChildProcess | null = null;
@@ -15,6 +15,14 @@ export class GPIOManager {
   private initGPIO() {
     console.log('[GPIO] Raspberry Pi 5 mimarisi için gpiomon başlatılıyor...');
     
+    // Eski gpiomon süreçlerini temizle (Zombi süreç koruması)
+    try {
+      execSync('pkill gpiomon');
+      console.log('[GPIO] Eski izleme süreçleri temizlendi.');
+    } catch (e) {
+      // Süreç yoksa hata verebilir, önemli değil.
+    }
+    
     // Physical Pi pins: GPIO 17 for input, GPIO 27 for output
     // On Pi 5, the main header is on gpiochip4
     this.startMonitoring(17, 'input');
@@ -24,25 +32,29 @@ export class GPIOManager {
   private lastTriggerTimes: Record<number, number> = {};
 
   private startMonitoring(pin: number, type: 'input' | 'output') {
-    // Sensör zaten 3V (High) verdiği için dahili pull-up direncini kaldırıyoruz.
-    // Düşen kenar (falling) kullanarak cismin geldiği anı (3V -> 0V) yakalıyoruz.
-    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
+    // '-b pull-up' parametresi bağlı olmayan veya gürültülü pinlerin kararlı kalması için gereklidir.
+    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
 
-    proc.stdout.on('data', () => {
-      const now = Date.now();
-      // 800ms'den daha hızlı gelen sinyalleri görmezden gel (Sert Gürültü Filtresi)
-      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 800)) {
-        return;
-      }
-      this.lastTriggerTimes[pin] = now;
+    proc.stdout.on('data', (data) => {
+      // Gelen veriyi satır satır ayır (Her satır bir sinyaldir)
+      const lines = data.toString().split('\n').filter((l: string) => l.trim());
       
-      if (type === 'input') {
-        console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Hareket Algılandı`);
-        this.onInputDetected();
-      } else {
-        console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Hareket Algılandı`);
-        this.onOutputDetected();
-      }
+      lines.forEach(() => {
+        const now = Date.now();
+        // 1500ms'den daha hızlı gelen sinyalleri görmezden gel (Ekstra Güçlü Gürültü Filtresi)
+        if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 1500)) {
+          return;
+        }
+        this.lastTriggerTimes[pin] = now;
+        
+        if (type === 'input') {
+          console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Hareket Algılandı`);
+          this.onInputDetected();
+        } else {
+          console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Hareket Algılandı`);
+          this.onOutputDetected();
+        }
+      });
     });
 
     proc.stderr.on('data', (data) => {

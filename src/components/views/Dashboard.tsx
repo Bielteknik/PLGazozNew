@@ -273,7 +273,7 @@ export function Dashboard({
                                 ? (data.mode === 'YIKAMA' ? "bg-blue-600 border-blue-400 text-white shadow-[0_0_12px_rgba(59,130,246,0.6)]" : "bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_12px_rgba(217,70,239,0.8)] text-white") 
                                 : "bg-[#2D333F] border-[#1F2937] text-gray-500"
                            )}>
-                            <span className="text-[10px] font-bold">V{valve.id}</span>
+                                                         <span className="text-[10px] font-bold">{valve.name || valve.id}</span>
                             {!valve.enabled && <div className="absolute inset-0 flex items-center justify-center"><div className="w-8 h-0.5 bg-red-500 -rotate-45" /></div>}
                           </button>
                           <div className={cn("w-2.5 h-6 mt-1 rounded-b-sm relative z-20", !valve.enabled ? "bg-red-900/50 opacity-50" : "bg-[#1F2937]")} />
