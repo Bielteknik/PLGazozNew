@@ -299,7 +299,7 @@ export class StateManager {
           const valve = p.valves.find(v => v.id === id);
           if (!valve) return p;
           const newState = !valve.isOpen;
-          this.serial.sendValveCommand(id, newState ? 'ON' : 'OFF');
+          this.serial.sendValveCommand(id, newState ? 'ON' : 'OFF', valve.nanoId);
           return {
             ...p,
             valves: p.valves.map(v => v.id === id ? { ...v, isOpen: newState } : v)
@@ -312,11 +312,15 @@ export class StateManager {
         const gateKey = target === 'inputGate' ? 'inputGate' : 'outputGate';
         const serialTarget = target === 'inputGate' ? 'INPUT' : 'OUTPUT';
         const isOpen = position > 0;
-        this.serial.sendGateCommand(serialTarget, isOpen ? 'OPEN' : 'CLOSE');
-        this.updateData(p => ({
-          ...p,
-          [gateKey]: { ...p[gateKey], isOpen, position }
-        }));
+        
+        this.updateData(p => {
+          const gate = p[gateKey];
+          this.serial.sendGateCommand(serialTarget, isOpen ? 'OPEN' : 'CLOSE', gate.nanoId);
+          return {
+            ...p,
+            [gateKey]: { ...p[gateKey], isOpen, position }
+          };
+        });
         break;
       }
       case 'TOGGLE_GATE_ENABLED': {
@@ -364,21 +368,22 @@ export class StateManager {
     
     this.updateData(p => {
       if (mode === 'YIKAMA') {
-        this.serial.sendGateCommand('INPUT', 'OPEN');
-        this.serial.sendGateCommand('OUTPUT', 'OPEN');
-        this.updateData(p => ({ 
-          ...p, mode, autoState: 'YIKAMA_DONGUSU',
+        const newState = { 
+          ...p, mode, autoState: 'YIKAMA_DONGUSU' as AutoState,
           inputGate: { ...p.inputGate, isOpen: true, position: 100 },
           outputGate: { ...p.outputGate, isOpen: true, position: 100 }
-        }));
+        };
+        this.serial.sendGateCommand('INPUT', 'OPEN', p.inputGate.nanoId);
+        this.serial.sendGateCommand('OUTPUT', 'OPEN', p.outputGate.nanoId);
         this.cycleStartTs = Date.now();
-        this.processAutoState();
-        return;
+        setTimeout(() => this.processAutoState(), 0);
+        return newState;
       }
       if (mode === 'TAHLIYE') {
-        this.serial.sendGateCommand('INPUT', 'OPEN');
-        this.serial.sendGateCommand('OUTPUT', 'OPEN');
-        this.serial.sendValveCommand('ALL', 'OFF');
+        this.serial.sendGateCommand('INPUT', 'OPEN', p.inputGate.nanoId);
+        this.serial.sendGateCommand('OUTPUT', 'OPEN', p.outputGate.nanoId);
+        // For 'ALL', we still fallback unless we want to loop through all nanos
+        this.serial.sendValveCommand('ALL', 'OFF'); 
         return {
           ...p, mode, autoState: 'BEKLEMEDE',
           inputGate: { ...p.inputGate, isOpen: true, position: 100 },

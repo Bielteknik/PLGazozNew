@@ -103,16 +103,16 @@ export class SerialManager {
     return anyNano || defaultId;
   }
 
-  public sendGateCommand(target: 'INPUT' | 'OUTPUT', state: 'OPEN' | 'CLOSE') {
-    const nanoId = this.getTargetNano('NANO-1');
+  public sendGateCommand(target: 'INPUT' | 'OUTPUT', state: 'OPEN' | 'CLOSE', specificNanoId?: string) {
+    const nanoId = specificNanoId || this.getTargetNano('NANO-1');
     const gateId = (target === 'INPUT') ? 1 : 2;
     const pos = (state === 'OPEN') ? 100 : 0;
 
     this.sendCommand(nanoId, `G${gateId}:${pos}`);
   }
 
-  public sendValveCommand(valveId: number | 'ALL', state: 'ON' | 'OFF') {
-    const nanoId = this.getTargetNano('NANO-2');
+  public sendValveCommand(valveId: number | 'ALL', state: 'ON' | 'OFF', specificNanoId?: string) {
+    const nanoId = specificNanoId || this.getTargetNano('NANO-2');
     this.sendCommand(nanoId, `VALVE_CMD:${valveId}:${state}`);
   }
 
