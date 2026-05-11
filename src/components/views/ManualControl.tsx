@@ -300,7 +300,7 @@ export function ManualControl({
                                >
                                   <Droplet size={20} className={v.isOpen ? "text-white" : "text-gray-600"} />
                                </button>
-                               <span className="text-[8px] font-bold text-gray-500">VALF {v.id}</span>
+                               <span className="text-[8px] font-bold text-gray-500">{v.name || `VALF ${v.id}`}</span>
                             </div>
                           ))}
                        </div>
