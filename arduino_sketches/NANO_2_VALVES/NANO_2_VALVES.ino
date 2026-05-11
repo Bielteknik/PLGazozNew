@@ -1,8 +1,4 @@
-/* 
- * NANO-2: Valf Kontrol Yazılımı (V2.0)
- * Görev: 9 adet dolum valfini (Röle kartı) kontrol eder.
- * Protokol: VALVE_CMD:[ID]:[STATE] (Örn: VALVE_CMD:1:ON)
- */
+
 
 // Valf rölelerinin bağlı olduğu pinler
 const int pins[] = {2, 3, 4, 5, 6, 7, 8, 9, 10}; 
@@ -13,7 +9,7 @@ void setup() {
   
   for(int i = 0; i < numValves; i++) { 
     pinMode(pins[i], OUTPUT); 
-    digitalWrite(pins[i], LOW); // Başlangıçta hepsi kapalı
+    digitalWrite(pins[i], HIGH); // Başlangıçta hepsi KAPALI (Active Low röleler için HIGH = KAPALI)
   }
   
   Serial.println("ACK:NANO_2_VALVES_READY");
@@ -35,13 +31,13 @@ void loop() {
       
       if (id == "ALL") {
         for(int i = 0; i < numValves; i++) {
-          digitalWrite(pins[i], state ? HIGH : LOW);
+          digitalWrite(pins[i], state ? LOW : HIGH); // ON = LOW, OFF = HIGH
         }
         Serial.print("ACK:VALVE:ALL:"); Serial.println(stateStr);
       } else {
         int vId = id.toInt();
         if(vId >= 1 && vId <= numValves) {
-          digitalWrite(pins[vId-1], state ? HIGH : LOW);
+          digitalWrite(pins[vId-1], state ? LOW : HIGH); // ON = LOW, OFF = HIGH
           Serial.print("ACK:VALVE:"); Serial.print(vId);
           Serial.print(":"); Serial.println(stateStr);
         }

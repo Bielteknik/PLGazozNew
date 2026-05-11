@@ -23,7 +23,7 @@ void setup() {
   // Valf Ayarları
   for(int i = 0; i < numValves; i++) { 
     pinMode(valvePins[i], OUTPUT); 
-    digitalWrite(valvePins[i], LOW); 
+    digitalWrite(valvePins[i], HIGH); // Başlangıçta KAPALI (Active-Low)
   }
   
   Serial.println("ACK:COMBINED_NANO_READY");
@@ -57,13 +57,13 @@ void loop() {
       
       if (id == "ALL") {
         for(int i = 0; i < numValves; i++) {
-          digitalWrite(valvePins[i], state ? HIGH : LOW);
+          digitalWrite(valvePins[i], state ? LOW : HIGH); // ON = LOW
         }
         Serial.print("ACK:VALVE:ALL:"); Serial.println(stateStr);
       } else {
         int vId = id.toInt();
         if(vId >= 1 && vId <= numValves) {
-          digitalWrite(valvePins[vId-1], state ? HIGH : LOW);
+          digitalWrite(valvePins[vId-1], state ? LOW : HIGH); // ON = LOW
           Serial.print("ACK:VALVE:"); Serial.print(vId);
           Serial.print(":"); Serial.println(stateStr);
         }
