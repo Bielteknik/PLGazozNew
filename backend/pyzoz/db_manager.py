@@ -4,7 +4,8 @@ import os
 
 class DatabaseManager:
     def __init__(self, db_path="plgazoz.db"):
-        self.db_path = db_path
+        # Dosya yolunu kesinleştir (scriptin olduğu klasöre göre)
+        self.db_path = os.path.join(os.path.dirname(__file__), db_path)
         self.init_db()
 
     def get_connection(self):
@@ -13,34 +14,32 @@ class DatabaseManager:
         return conn
 
     def init_db(self):
-        # Sıfırdan kurulum için veritabanını temizle (Kullanıcı talebi)
+        # Önceki veritabanını sil (Sütun hatalarını önlemek için)
         if os.path.exists(self.db_path):
-            os.remove(self.db_path)
+            try:
+                os.remove(self.db_path)
+            except:
+                pass
             
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Sistem Durumu ve Ayarlar Tablosu
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS system_state (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            ''')
+            cursor.execute('CREATE TABLE system_state (key TEXT PRIMARY KEY, value TEXT)')
             
-            # Reçeteler Tablosu
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS recipes (
                     id TEXT PRIMARY KEY,
                     name TEXT,
+                    volumeMl INTEGER,
                     targetCount INTEGER,
                     fillTimeMs INTEGER,
-                    waitAfterFillMs INTEGER,
+                    settlingTimeMs INTEGER,
+                    dripWaitTimeMs INTEGER,
+                    description TEXT,
                     active BOOLEAN
                 )
             ''')
             
-            # Üretim Geçmişi (Döngüler) Tablosu
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS cycle_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,13 +52,11 @@ class DatabaseManager:
                 )
             ''')
 
-            # Varsayılan Verileri Ekle
             self._seed_default_data(cursor)
             conn.commit()
-            print(f"[DB] Veritabanı başarıyla sıfırlandı ve kuruldu: {self.db_path}")
+            print(f"[DB] Veritabanı başarıyla güncellendi ve kuruldu.")
 
     def _seed_default_data(self, cursor):
-        # Varsayılan Ayarlar (SystemConfig tipine tam uyumlu)
         default_config = {
             "recipeId": "RECIPE-1",
             "volumeMl": 250,
@@ -87,9 +84,8 @@ class DatabaseManager:
             "washDurationMs": 30000,
             "washValveIntervalMs": 2000
         }
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("config", json.dumps(default_config)))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("config", json.dumps(default_config)))
 
-        # Varsayılan Donanım Tanımları
         default_valves = [
             {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
             {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
@@ -101,26 +97,24 @@ class DatabaseManager:
             {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
             {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"}
         ]
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("valves", json.dumps(default_valves)))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("valves", json.dumps(default_valves)))
 
         default_sensors = [
             {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "RASPI", "status": "ONLINE"},
             {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "RASPI", "status": "ONLINE"}
         ]
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("sensors", json.dumps(default_sensors)))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("sensors", json.dumps(default_sensors)))
 
         default_nanos = [
             {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 115200}
         ]
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("nanos", json.dumps(default_nanos)))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("nanos", json.dumps(default_nanos)))
 
-        # Varsayılan Kapılar
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("inputGate", json.dumps({"isOpen": False, "pin": "18", "enabled": True, "position": 0})))
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("outputGate", json.dumps({"isOpen": False, "pin": "23", "enabled": True, "position": 0})))
-        cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", ("extraGates", json.dumps([])))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("inputGate", json.dumps({"isOpen": False, "pin": "18", "enabled": True, "position": 0})))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("outputGate", json.dumps({"isOpen": False, "pin": "23", "enabled": True, "position": 0})))
+        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("extraGates", json.dumps([])))
 
-        # Varsayılan Reçete (Recipe tipine tam uyumlu)
-        cursor.execute("INSERT OR REPLACE INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        cursor.execute("INSERT INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                        ("RECIPE-1", "Standart Dolum", 250, 9, 1500, 1000, 500, "9 şişe standart dolum reçetesi", True))
 
     def get_state(self, key):
