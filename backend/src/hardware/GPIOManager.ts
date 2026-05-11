@@ -24,14 +24,14 @@ export class GPIOManager {
   private lastTriggerTimes: Record<number, number> = {};
 
   private startMonitoring(pin: number, type: 'input' | 'output') {
-    // '-b pull-up' parametresi bağlı olmayan pinlerin gürültü (noise) yapmasını önlemek için KRİTİKTİR.
-    // '-e rising' (yükselen kenar) deniyoruz, bazen düşen kenar gürültüye daha duyarlıdır.
-    const proc = spawn('gpiomon', ['-e', 'rising', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
+    // Sensör zaten 3V (High) verdiği için dahili pull-up direncini kaldırıyoruz.
+    // Düşen kenar (falling) kullanarak cismin geldiği anı (3V -> 0V) yakalıyoruz.
+    const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
 
     proc.stdout.on('data', () => {
       const now = Date.now();
-      // 500ms'den daha hızlı gelen sinyalleri görmezden gel (Gürültü Filtresi)
-      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 500)) {
+      // 800ms'den daha hızlı gelen sinyalleri görmezden gel (Sert Gürültü Filtresi)
+      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 800)) {
         return;
       }
       this.lastTriggerTimes[pin] = now;
