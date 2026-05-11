@@ -48,9 +48,8 @@ async def handle_action(sid, data):
     
     print(f"[Action] Alınan Aksiyon: {action_type}")
     
-    if action_type == 'SCAN_PORTS':
-        state.data["serialPorts"] = hw.get_available_ports()
-    elif action_type == 'SET_MODE':
+    # 1. Sistem Modu ve Otomasyon
+    if action_type == 'SET_MODE':
         state.set_mode(payload.get('mode'))
     elif action_type == 'START_AUTO':
         state.start_auto()
@@ -59,8 +58,65 @@ async def handle_action(sid, data):
     elif action_type == 'EMERGENCY_STOP':
         state.set_mode('ACIL_DURDUR')
         hw.all_off()
+    elif action_type == 'SCAN_PORTS':
+        state.data["serialPorts"] = hw.get_available_ports()
+
+    # 2. Donanım Yönetimi (Ekleme/Silme/Güncelleme)
+    elif action_type == 'UPDATE_VALVE':
+        valves = state.data.get("valves", [])
+        for v in valves:
+            if v["id"] == payload.get("id"):
+                v.update(payload.get("updates", {}))
+        state.data["valves"] = valves
+        db.save_state("valves", valves)
         
-    # Her aksiyondan sonra güncel durumu gönder
+    elif action_type == 'UPDATE_SENSOR':
+        sensors = state.data.get("sensors", [])
+        for s in sensors:
+            if s["id"] == payload.get("id"):
+                s.update(payload.get("updates", {}))
+        state.data["sensors"] = sensors
+        db.save_state("sensors", sensors)
+
+    elif action_type == 'REMOVE_SENSOR':
+        sensors = [s for s in state.data.get("sensors", []) if s["id"] != payload.get("id")]
+        state.data["sensors"] = sensors
+        db.save_state("sensors", sensors)
+
+    elif action_type == 'REMOVE_VALVE':
+        valves = [v for v in state.data.get("valves", []) if v["id"] != payload.get("id")]
+        state.data["valves"] = valves
+        db.save_state("valves", valves)
+
+    # 3. Reçete ve Konfigürasyon
+    elif action_type == 'UPDATE_CONFIG':
+        config = state.data.get("config", {})
+        config.update(payload)
+        state.data["config"] = config
+        db.save_state("config", config)
+
+    elif action_type == 'ADD_RECIPE':
+        recipe = payload.get("recipe")
+        if recipe:
+            db.add_recipe(recipe)
+            state.data["recipes"] = db.get_recipes()
+
+    elif action_type == 'REMOVE_RECIPE':
+        db.remove_recipe(payload.get("id"))
+        state.data["recipes"] = db.get_recipes()
+
+    elif action_type == 'UPDATE_RECIPE':
+        db.update_recipe(payload.get("id"), payload.get("updates"))
+        state.data["recipes"] = db.get_recipes()
+
+    elif action_type == 'SELECT_RECIPE':
+        config = state.data.get("config", {})
+        config["recipeId"] = payload.get("id")
+        state.data["config"] = config
+        db.save_state("config", config)
+        state.log(f"Yeni Reçete Seçildi: {payload.get('id')}")
+
+    # Her aksiyondan sonra güncel durumu tüm istemcilere gönder
     await sio.emit('STATE_UPDATE', state.data)
 
 # State Manager'dan gelen güncellemeleri yayınla

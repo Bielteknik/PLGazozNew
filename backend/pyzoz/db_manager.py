@@ -136,6 +136,28 @@ class DatabaseManager:
             cursor.execute("SELECT * FROM recipes")
             return [dict(row) for row in cursor.fetchall()]
 
+    def add_recipe(self, r):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (r['id'], r['name'], r['volumeMl'], r['targetCount'], r['fillTimeMs'], r['settlingTimeMs'], r['dripWaitTimeMs'], r['description'], False))
+            conn.commit()
+
+    def remove_recipe(self, recipe_id):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM recipes WHERE id = ?", (recipe_id,))
+            conn.commit()
+
+    def update_recipe(self, recipe_id, updates):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            for key, value in updates.items():
+                cursor.execute(f"UPDATE recipes SET {key} = ? WHERE id = ?", (value, recipe_id))
+            conn.commit()
+
     def add_cycle(self, cycle_data):
         with self.get_connection() as conn:
             cursor = conn.cursor()
