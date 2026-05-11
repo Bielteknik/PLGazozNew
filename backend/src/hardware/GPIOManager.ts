@@ -15,18 +15,14 @@ export class GPIOManager {
   private initGPIO() {
     console.log('[GPIO] Raspberry Pi 5 mimarisi için gpiomon başlatılıyor...');
     
-    // Eski gpiomon süreçlerini temizle (Zombi süreç koruması)
+    // Eski gpiomon süreçlerini temizle
     try {
       execSync('pkill gpiomon');
-      console.log('[GPIO] Eski izleme süreçleri temizlendi.');
-    } catch (e) {
-      // Süreç yoksa hata verebilir, önemli değil.
-    }
+    } catch (e) {}
     
-    // Physical Pi pins: GPIO 17 for input, GPIO 27 for output
-    // On Pi 5, the main header is on gpiochip4
+    // SADECE takılı olan Pin 17'yi izle. 
+    // Pin 27 kablosu takılı olmadığı ve parazit yaptığı için devre dışı bırakıldı.
     this.startMonitoring(17, 'input');
-    this.startMonitoring(27, 'output');
   }
 
   private lastTriggerTimes: Record<number, number> = {};
