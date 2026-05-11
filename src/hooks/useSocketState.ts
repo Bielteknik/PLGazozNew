@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { SystemData, SystemMode, AutoState, ValveState, GateState, NanoState, SensorState, SystemConfig, Recipe } from '../types/system';
 import { INITIAL_STATE } from './useSystemSimulator';
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:8000`;
 
 export function useSocketState() {
   const [socket, setSocket] = useState<Socket | null>(null);
