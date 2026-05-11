@@ -25,21 +25,22 @@ export class GPIOManager {
 
   private startMonitoring(pin: number, type: 'input' | 'output') {
     // '-b pull-up' parametresi bağlı olmayan pinlerin gürültü (noise) yapmasını önlemek için KRİTİKTİR.
-    const proc = spawn('gpiomon', ['-e', 'falling', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
+    // '-e rising' (yükselen kenar) deniyoruz, bazen düşen kenar gürültüye daha duyarlıdır.
+    const proc = spawn('gpiomon', ['-e', 'rising', '-b', 'pull-up', '--chip', 'gpiochip4', pin.toString()]);
 
     proc.stdout.on('data', () => {
       const now = Date.now();
-      // 250ms'den daha hızlı gelen sinyalleri görmezden gel (Yazılımsal Filtre/Debounce)
-      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 250)) {
+      // 500ms'den daha hızlı gelen sinyalleri görmezden gel (Gürültü Filtresi)
+      if (this.lastTriggerTimes[pin] && (now - this.lastTriggerTimes[pin] < 500)) {
         return;
       }
       this.lastTriggerTimes[pin] = now;
       
       if (type === 'input') {
-        console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Tetiklendi`);
+        console.log(`[GPIO] Pin ${pin} (Giriş Sensörü) Hareket Algılandı`);
         this.onInputDetected();
       } else {
-        console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Tetiklendi`);
+        console.log(`[GPIO] Pin ${pin} (Çıkış Sensörü) Hareket Algılandı`);
         this.onOutputDetected();
       }
     });
