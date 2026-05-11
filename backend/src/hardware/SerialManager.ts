@@ -38,8 +38,16 @@ export class SerialManager {
       this.handleIncomingData(id, data.trim());
     });
 
+    port.on('close', () => {
+      console.log(`[Serial] Port ${path} for ${id} closed.`);
+      this.ports.delete(id);
+      this.onStatus?.(id, 'OFFLINE');
+    });
+
     port.on('error', (err) => {
       console.error(`[Serial] Error on ${id}:`, err);
+      this.ports.delete(id);
+      this.onStatus?.(id, 'OFFLINE');
     });
 
     this.ports.set(id, port);
