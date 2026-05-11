@@ -140,6 +140,7 @@ export interface SystemData {
   nanos: NanoState[];
   sensors: SensorState[];
   terminalLogs: string[];
+  serialPorts: string[];
   inputGate: GateState;
   outputGate: GateState;
   extraGates: GateState[];

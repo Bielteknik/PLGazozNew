@@ -13,8 +13,19 @@ class HardwareManager:
         self.sensors = {}
         
     def get_available_ports(self):
-        ports = serial.tools.list_ports.comports()
-        return [p.device for p in ports]
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        
+        # Pi 5 Manuel Kontrol (Eğer liste boşsa veya USB portları eksikse)
+        import os
+        for i in range(4):
+            usb_p = f"/dev/ttyUSB{i}"
+            acm_p = f"/dev/ttyACM{i}"
+            if os.path.exists(usb_p) and usb_p not in ports:
+                ports.append(usb_p)
+            if os.path.exists(acm_p) and acm_p not in ports:
+                ports.append(acm_p)
+                
+        return list(set(ports))
 
     def connect_serial(self, port='/dev/ttyUSB0', baudrate=115200):
         try:

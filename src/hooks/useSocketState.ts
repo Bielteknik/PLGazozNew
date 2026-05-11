@@ -29,6 +29,10 @@ export function useSocketState() {
       setData(newState);
     });
 
+    newSocket.on('AVAILABLE_PORTS', (ports: string[]) => {
+      setData(prev => ({ ...prev, serialPorts: ports }));
+    });
+
     setSocket(newSocket);
 
     return () => {

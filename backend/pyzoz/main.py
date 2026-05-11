@@ -3,58 +3,63 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-import json
+import os
+import time
 
 from state_manager import StateManager
 from hardware_manager import HardwareManager
 from db_manager import DatabaseManager
 
-# 1. Altyapıyı Hazırla
+# --- Altyapı ---
 app = FastAPI()
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio, app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 db = DatabaseManager()
 hw = HardwareManager()
 state = StateManager(db, hw)
 
-# Donanımı Başlat
+# Donanım başlat (hata olsa da devam et)
 hw.connect_serial()
 hw.setup_gpio()
 
-# Port listesini state'e ekle
-state.data["serialPorts"] = hw.get_available_ports()
+# --- Yardımcı ---
+def refresh_ports():
+    """Pi 5 için: pyserial + manuel /dev kontrol"""
+    ports = [p.device for p in __import__('serial').tools.list_ports.comports()]
+    for i in range(4):
+        for prefix in ['/dev/ttyUSB', '/dev/ttyACM']:
+            p = f"{prefix}{i}"
+            if os.path.exists(p) and p not in ports:
+                ports.append(p)
+    # Şu an nano'larda tanımlı portları da ekle
+    for n in state.data.get("nanos", []):
+        if n.get("port") and n.get("port") not in ports:
+            ports.append(n.get("port"))
+    return sorted(set(ports))
 
-# 3. Socket.io Olayları
+# --- Socket Olayları ---
 @sio.event
 async def connect(sid, environ):
-    ports = hw.get_available_ports()
-    state.data["serialPorts"] = ports
-    print(f"[Socket] İstemci bağlandı: {sid}")
-    await sio.emit('AVAILABLE_PORTS', ports, room=sid)
+    print(f"[SOCKET] Bağlandı: {sid}")
+    state.data["serialPorts"] = refresh_ports()
     await sio.emit('STATE_UPDATE', state.data, room=sid)
 
 @sio.on('ACTION')
 async def handle_action(sid, data):
     action_type = data.get('type')
     payload = data.get('payload', {})
-    
-    print(f"[Action] Alınan Aksiyon: {action_type}")
-    
-    # --- SİSTEM MODLARI ---
+    print(f"[ACTION] {action_type}")
+
+    # --- Sistem Modu ---
     if action_type == 'SET_MODE':
         state.set_mode(payload.get('mode'))
     elif action_type == 'START_AUTO_CYCLE':
         state.start_auto()
     elif action_type == 'EMERGENCY_STOP':
-        state.set_mode('ACIL_DURDUR')
+        state.set_mode('ARIZA')
         hw.all_off()
     elif action_type == 'ACKNOWLEDGE_STARTUP':
         state.set_mode('BEKLEMEDE')
@@ -65,7 +70,12 @@ async def handle_action(sid, data):
     elif action_type == 'REQUEST_STOP_AFTER_CYCLE':
         state.data["stopAfterCycleRequested"] = True
 
-    # --- VALF YÖNETİMİ ---
+    # --- Port Tarama ---
+    elif action_type == 'SCAN_PORTS':
+        state.data["serialPorts"] = refresh_ports()
+        print(f"[PORT] Bulunanlar: {state.data['serialPorts']}")
+
+    # --- Valf ---
     elif action_type == 'TOGGLE_VALVE':
         state.toggle_valve_manual(payload.get('id'))
     elif action_type == 'ADD_VALVE':
@@ -92,13 +102,12 @@ async def handle_action(sid, data):
         state.data["valves"] = valves
         db.save_state("valves", valves)
 
-    # --- SENSÖR YÖNETİMİ ---
+    # --- Sensör ---
     elif action_type == 'ADD_SENSOR':
         sensors = state.data.get("sensors", [])
         sensors.append(payload.get("sensor"))
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
-        hw.setup_gpio() # Yeni sensörü GPIO'ya bağla
     elif action_type == 'REMOVE_SENSOR':
         sensors = [s for s in state.data.get("sensors", []) if s["id"] != payload.get("id")]
         state.data["sensors"] = sensors
@@ -118,8 +127,8 @@ async def handle_action(sid, data):
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
 
-    # --- NANO / ARDUINO YÖNETİMİ ---
-    elif action_type == 'ADD_HARDWARE': # React'te Nano için ADD_HARDWARE kullanılıyor
+    # --- Nano / Arduino ---
+    elif action_type == 'ADD_HARDWARE':
         nanos = state.data.get("nanos", [])
         nanos.append(payload.get("nano"))
         state.data["nanos"] = nanos
@@ -137,32 +146,23 @@ async def handle_action(sid, data):
         db.save_state("nanos", nanos)
     elif action_type == 'SEND_NANO_COMMAND':
         hw.send_serial(f"{payload.get('cmd')}\n")
-    elif action_type == 'SCAN_PORTS':
-        ports = hw.get_available_ports()
-        # Eğer bir nano bağlıysa ve listede yoksa, manuel ekle (çünkü pyserial bazen açık portu gizler)
-        for n in state.data.get("nanos", []):
-            if n.get("port") and n.get("port") not in ports:
-                ports.append(n.get("port"))
-        state.data["serialPorts"] = ports
-        await sio.emit('AVAILABLE_PORTS', ports)
 
-    # --- KAPILAR VE DİĞERLERİ ---
+    # --- Kapılar ---
     elif action_type == 'UPDATE_SYSTEM_GATE':
         target = payload.get("target")
-        state.data[target].update(payload.get("updates", {}))
-        db.save_state(target, state.data[target])
-    elif action_type == 'TOGGLE_GATE_ENABLED':
-        target = payload.get("target")
         if target in state.data:
+            state.data[target].update(payload.get("updates", {}))
+            db.save_state(target, state.data[target])
+    elif action_type == 'TOGGLE_GATE_ENABLED':
+        target = payload.get("target") or payload.get("id")
+        if target and target in state.data:
             state.data[target]["enabled"] = not state.data[target].get("enabled", True)
             db.save_state(target, state.data[target])
     elif action_type == 'RESET_COUNTER':
-        if payload.get("target") == 'input':
-            state.data["inputCount"] = 0
-        else:
-            state.data["outputCount"] = 0
+        key = "inputCount" if payload.get("target") == 'input' else "outputCount"
+        state.data[key] = 0
 
-    # --- REÇETE YÖNETİMİ ---
+    # --- Reçete ---
     elif action_type == 'ADD_RECIPE':
         db.add_recipe(payload.get("recipe"))
         state.data["recipes"] = db.get_recipes()
@@ -170,32 +170,32 @@ async def handle_action(sid, data):
         db.remove_recipe(payload.get("id"))
         state.data["recipes"] = db.get_recipes()
     elif action_type == 'UPDATE_RECIPE':
-        db.update_recipe(payload.get("id"), payload.get("updates"))
+        db.update_recipe(payload.get("id"), payload.get("updates", {}))
         state.data["recipes"] = db.get_recipes()
     elif action_type == 'SELECT_RECIPE':
-        config = state.data.get("config", {})
-        config["recipeId"] = payload.get("id")
-        state.data["config"] = config
-        db.save_state("config", config)
+        state.data["config"]["recipeId"] = payload.get("id")
+        db.save_state("config", state.data["config"])
 
+    # --- Konfig ---
     elif action_type == 'UPDATE_CONFIG':
-        config = state.data.get("config", {})
-        config.update(payload.get("config", {}))
-        state.data["config"] = config
-        db.save_state("config", config)
+        state.data["config"].update(payload.get("config", {}))
+        db.save_state("config", state.data["config"])
 
-    # Her aksiyondan sonra güncel durumu tüm istemcilere gönder
     await sio.emit('STATE_UPDATE', state.data)
 
-# State Manager'dan gelen güncellemeleri yayınla
-async def state_broadcast_loop():
+# --- Arka Plan Döngüsü ---
+async def broadcast_loop():
     while True:
+        state.data["serialPorts"] = refresh_ports()
         await sio.emit('STATE_UPDATE', state.data)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(2)
 
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(state_broadcast_loop())
+    asyncio.create_task(broadcast_loop())
 
 if __name__ == "__main__":
-    uvicorn.run(socket_app, host="0.0.0.0", port=8000)
+    print("\n" + "="*50)
+    print("   PLGAZOZ BACKEND - PORT 8000")
+    print("="*50 + "\n")
+    uvicorn.run(socket_app, host="0.0.0.0", port=8000, log_level="warning")

@@ -241,7 +241,7 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
                              className="w-full bg-[#151921] border border-[#374151] rounded px-2 py-1.5 text-xs text-gray-200 focus:border-indigo-500 outline-none disabled:opacity-50"
                           >
                              <option value="" disabled>Seçiniz</option>
-                             {availablePorts.map(p => {
+                             {Array.from(new Set([...(data.serialPorts || []), ...availablePorts])).map(p => {
                                 const inUseBy = data.nanos.find(n => n.id !== nano.id && n.port === p);
                                 return (
                                   <option key={p} value={p} disabled={!!inUseBy}>
