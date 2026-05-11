@@ -27,7 +27,7 @@ export class GPIOManager {
     const proc = spawn('gpiomon', ['-e', 'falling', '--chip', 'gpiochip4', pin.toString()]);
 
     proc.stdout.on('data', () => {
-      // Any output from gpiomon indicates an event
+      console.log(`[GPIO] Pin ${pin} (${type}) üzerinde fiziksel hareket algılandı!`);
       if (type === 'input') this.onInputDetected();
       else this.onOutputDetected();
     });

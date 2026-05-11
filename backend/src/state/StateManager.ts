@@ -89,27 +89,20 @@ export class StateManager {
 
   // Handle hardware laser interrupts
   private handleInputLaser() {
+    console.log('[GPIO] Giriş Sensörü Sinyali Alındı');
+    this.updateData(p => ({ ...p, inputCount: p.inputCount + 1 }));
+    
     if (this.data.mode === 'OTOMATİK' && this.data.autoState === 'GIRIS_SAYILIYOR') {
-      this.updateData(p => {
-         const activeTargetCount = Math.min(p.config.targetCount, p.valves.filter(v => v.enabled).length);
-         if (p.inputCount < activeTargetCount) {
-             return { ...p, inputCount: p.inputCount + 1 };
-         }
-         return p;
-      });
-      this.processAutoState(); // Re-check if goal is reached
+      this.processAutoState();
     }
   }
 
   private handleOutputLaser() {
+    console.log('[GPIO] Çıkış Sensörü Sinyali Alındı');
+    this.updateData(p => ({ ...p, outputCount: p.outputCount + 1 }));
+    
     if (this.data.mode === 'OTOMATİK' && this.data.autoState === 'TAHLIYE') {
-      this.updateData(p => {
-         if (p.outputCount < p.inputCount) {
-             return { ...p, outputCount: p.outputCount + 1 };
-         }
-         return p;
-      });
-      this.processAutoState(); // Re-check if all bottles are out
+      this.processAutoState();
     }
   }
 
