@@ -88,24 +88,26 @@ class HardwareManager:
     def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
         """
         Pi 5 için Polling (Sürekli Kontrol) yöntemi.
-        Callback'ler Pi 5'te bazen tutukluk yapabiliyor, bu yöntem %100 çalışır.
+        Sensör config'i saklanır ve gelen sinyalin kaynağı doğrulanır.
         """
+        self.sensor_config = sensors or []
         try:
             import lgpio
             import threading
             self.gpio_h = lgpio.gpiochip_open(0)
 
+            # Varsayılanlar
             in_pin = input_pin
             out_pin = output_pin
-            if sensors:
-                for s in sensors:
-                    if s.get("device") == "RASPI" and s.get("enabled"):
-                        pin = int(s.get("pin", 0))
-                        if not pin: continue
-                        if s.get("type") == "INPUT": in_pin = pin
-                        else: out_pin = pin
 
-            # Pinleri ayarla
+            # Sadece RASPI seçilen sensörler için pinleri ayarla
+            for s in self.sensor_config:
+                if s.get("device") == "RASPI" and s.get("enabled"):
+                    pin = int(s.get("pin", 0))
+                    if not pin: continue
+                    if s.get("type") == "INPUT": in_pin = pin
+                    else: out_pin = pin
+
             lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
             lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
 
@@ -114,48 +116,54 @@ class HardwareManager:
             self.last_out_state = 1
 
             def poll_loop():
-                print(f"[GPIO] Polling Bekçisi Başladı. İzlenen: {in_pin}, {out_pin}")
                 while self.polling_active:
                     try:
-                        # Giriş Sensörü Oku
+                        # Giriş Sensörü Oku (Sadece RASPI ayarlıysa işle)
                         in_val = lgpio.gpio_read(self.gpio_h, in_pin)
                         if in_val != self.last_in_state:
-                            state_msg = "0V (ENGEL)" if in_val == 0 else "3V (BOŞ)"
-                            print(f"[GPIO] PIN {in_pin} DEĞİŞTİ: {state_msg}")
-                            if in_val == 0: self._handle_input()
+                            if in_val == 0: self._handle_input("RASPI")
                             self.last_in_state = in_val
 
-                        # Çıkış Sensörü Oku
+                        # Çıkış Sensörü Oku (Sadece RASPI ayarlıysa işle)
                         out_val = lgpio.gpio_read(self.gpio_h, out_pin)
                         if out_val != self.last_out_state:
-                            state_msg = "0V (ENGEL)" if out_val == 0 else "3V (BOŞ)"
-                            print(f"[GPIO] PIN {out_pin} DEĞİŞTİ: {state_msg}")
-                            if out_val == 0: self._handle_output()
+                            if out_val == 0: self._handle_output("RASPI")
                             self.last_out_state = out_val
 
-                        time.sleep(0.1) # 100ms bekle (Saniyede 10 kontrol)
-                    except Exception as e:
-                        print(f"[GPIO] Polling Hatası: {e}")
-                        break
+                        time.sleep(0.1)
+                    except: break
 
             self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
             self.poll_thread.start()
+            print(f"[GPIO] İzleme başladı (Hibrit Mod)")
 
-        except ImportError:
-            print("\n[HATA] 'lgpio' kütüphanesi eksik!")
-            print("Lütfen Pi 5 terminalinde: pip install lgpio --break-system-packages\n")
         except Exception as e:
             print(f"[GPIO] Kurulum Hatası: {e}")
 
-    def _handle_input(self):
-        print(">>> GİRİŞ SENSÖRÜ: SAYAÇ +1")
-        if self.on_input_detected:
-            self.on_input_detected()
+    def update(self):
+        """Serial'den gelen verileri oku ve işle."""
+        if self.serial_conn and self.serial_conn.is_open and self.serial_conn.in_waiting > 0:
+            try:
+                line = self.serial_conn.readline().decode().strip()
+                if line == "SENS:IN":
+                    self._handle_input("NANO")
+                elif line == "SENS:OUT":
+                    self._handle_output("NANO")
+            except: pass
 
-    def _handle_output(self):
-        print(">>> ÇIKIŞ SENSÖRÜ: SAYAÇ +1")
-        if self.on_output_detected:
-            self.on_output_detected()
+    def _handle_input(self, source):
+        # Arayüzden bu sensör için hangi cihaz seçilmiş?
+        for s in self.sensor_config:
+            if s.get("type") == "INPUT" and s.get("device") == source and s.get("enabled"):
+                print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")
+                if self.on_input_detected: self.on_input_detected()
+
+    def _handle_output(self, source):
+        # Arayüzden bu sensör için hangi cihaz seçilmiş?
+        for s in self.sensor_config:
+            if s.get("type") == "OUTPUT" and s.get("device") == source and s.get("enabled"):
+                print(f">>> ÇIKIŞ SENSÖRÜ ({source}) TETİKLENDİ")
+                if self.on_output_detected: self.on_output_detected()
 
     def cleanup(self):
         self.polling_active = False
