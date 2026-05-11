@@ -1,4 +1,5 @@
 import serial
+import serial.tools.list_ports
 import time
 import threading
 from gpiozero import Button
@@ -11,6 +12,10 @@ class HardwareManager:
         self.on_output_detected = None
         self.sensors = {}
         
+    def get_available_ports(self):
+        ports = serial.tools.list_ports.comports()
+        return [p.device for p in ports]
+
     def connect_serial(self, port='/dev/ttyUSB0', baudrate=115200):
         try:
             self.serial_conn = serial.Serial(port, baudrate, timeout=1)

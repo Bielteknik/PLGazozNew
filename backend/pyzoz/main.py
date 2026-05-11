@@ -30,9 +30,14 @@ state = StateManager(db, hw)
 hw.connect_serial()
 hw.setup_gpio()
 
+# Port listesini state'e ekle
+state.data["serialPorts"] = hw.get_available_ports()
+
 # 3. Socket.io Olayları
 @sio.event
 async def connect(sid, environ):
+    # Bağlantı anında port listesini tazele
+    state.data["serialPorts"] = hw.get_available_ports()
     print(f"[Socket] İstemci bağlandı: {sid}")
     await sio.emit('STATE_UPDATE', state.data, room=sid)
 
@@ -43,7 +48,9 @@ async def handle_action(sid, data):
     
     print(f"[Action] Alınan Aksiyon: {action_type}")
     
-    if action_type == 'SET_MODE':
+    if action_type == 'SCAN_PORTS':
+        state.data["serialPorts"] = hw.get_available_ports()
+    elif action_type == 'SET_MODE':
         state.set_mode(payload.get('mode'))
     elif action_type == 'START_AUTO':
         state.start_auto()
