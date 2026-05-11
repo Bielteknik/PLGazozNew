@@ -139,6 +139,10 @@ async def handle_action(sid, data):
         hw.send_serial(f"{payload.get('cmd')}\n")
     elif action_type == 'SCAN_PORTS':
         ports = hw.get_available_ports()
+        # Eğer bir nano bağlıysa ve listede yoksa, manuel ekle (çünkü pyserial bazen açık portu gizler)
+        for n in state.data.get("nanos", []):
+            if n.get("port") and n.get("port") not in ports:
+                ports.append(n.get("port"))
         state.data["serialPorts"] = ports
         await sio.emit('AVAILABLE_PORTS', ports)
 

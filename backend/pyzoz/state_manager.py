@@ -10,7 +10,9 @@ class StateManager:
             "inputCount": 0,
             "outputCount": 0,
             "valves": self.db.get_state("valves") or [],
-            "nanos": self.db.get_state("nanos") or [],
+            "nanos": self.db.get_state("nanos") or [
+                {"id": "NANO-01", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 5, "baudRate": 115200}
+            ],
             "sensors": self.db.get_state("sensors") or [],
             "terminalLogs": ["Python Backend Hazır.", "Sistem başlatılıyor..."],
             "inputGate": self.db.get_state("inputGate") or {"id": "GATE-IN", "name": "Giriş Kapısı", "isOpen": False, "position": 0, "enabled": True},
