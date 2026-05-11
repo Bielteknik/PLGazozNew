@@ -30,10 +30,24 @@ class HardwareManager:
     def connect_serial(self, port='/dev/ttyUSB0', baudrate=115200):
         try:
             self.serial_conn = serial.Serial(port, baudrate, timeout=1)
-            print(f"[Serial] Arduino Nano bağlandı: {port}")
+            print(f"[Serial] Bağlandı: {port}")
             return True
         except Exception as e:
-            print(f"[Serial] Bağlantı Hatası ({port}): {e}")
+            print(f"[Serial] Hata ({port}): {e}")
+            return False
+
+    def connect_to_port(self, port, baudrate=115200):
+        """Belirtilen porta bağlanmayı dene. Başarılıysa True döndür."""
+        try:
+            # Mevcut bağlantıyı kapat
+            if self.serial_conn and self.serial_conn.is_open:
+                self.serial_conn.close()
+            self.serial_conn = serial.Serial(port, baudrate, timeout=1)
+            print(f"[Serial] Yeni bağlantı: {port}@{baudrate}")
+            return True
+        except Exception as e:
+            print(f"[Serial] Bağlantı başarısız ({port}): {e}")
+            self.serial_conn = None
             return False
 
     def send_command(self, cmd):

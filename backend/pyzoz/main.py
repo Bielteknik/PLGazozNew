@@ -142,6 +142,14 @@ async def handle_action(sid, data):
         for n in nanos:
             if n["id"] == payload.get("id"):
                 n.update(payload.get("config", {}))
+                # Port atandıysa bağlanmayı dene
+                if "port" in payload.get("config", {}) or "baudRate" in payload.get("config", {}):
+                    port = n.get("port")
+                    baud = n.get("baudRate", 115200)
+                    if port:
+                        success = hw.connect_to_port(port, baud)
+                        n["status"] = "ONLINE" if success else "OFFLINE"
+                        print(f"[NANO] {port} bağlantı: {'ONLINE' if success else 'OFFLINE'}")
         state.data["nanos"] = nanos
         db.save_state("nanos", nanos)
     elif action_type == 'SEND_NANO_COMMAND':
@@ -187,6 +195,13 @@ async def handle_action(sid, data):
 async def broadcast_loop():
     while True:
         state.data["serialPorts"] = refresh_ports()
+        
+        # Nano bağlantı durumlarını kontrol et
+        for n in state.data.get("nanos", []):
+            if n.get("port"):
+                is_connected = hw.serial_conn and hw.serial_conn.is_open and hw.serial_conn.port == n.get("port")
+                n["status"] = "ONLINE" if is_connected else "OFFLINE"
+        
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
 
