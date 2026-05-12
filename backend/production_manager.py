@@ -26,9 +26,12 @@ class ProductionManager:
         self.is_running = True
         self.state.log("OTOMATİK: Döngü başlatılıyor...")
         
-        # 1. Başlangıç Durumu: Tüm kilitleri kapat
-        self.hw.control_gate("G1", 0) # Giriş Kapısı Kapalı
-        self.hw.control_gate("G2", 0) # Çıkış Kapısı Kapalı
+        # 1. Başlangıç Durumu: Tüm kilitleri kapat (Dinamik komutlar alınır)
+        in_gate_cmd = self.state.data["inputGate"].get("pin", "G1")
+        out_gate_cmd = self.state.data["outputGate"].get("pin", "G2")
+        
+        self.hw.control_gate(in_gate_cmd, 0)
+        self.hw.control_gate(out_gate_cmd, 0)
         self.state.data["inputGate"]["isOpen"] = False
         self.state.data["outputGate"]["isOpen"] = False
         
@@ -51,7 +54,7 @@ class ProductionManager:
             self.state.data["outputCount"] = 0
             
             # Giriş kilidini aç
-            self.hw.control_gate("G1", 1)
+            self.hw.control_gate(in_gate_cmd, 1)
             self.state.data["inputGate"]["isOpen"] = True
             
             # Reçetedeki adet kadar şişe girene kadar bekle
@@ -60,7 +63,7 @@ class ProductionManager:
                 await asyncio.sleep(0.1)
             
             # Adet doldu, giriş kilidini kapat
-            self.hw.control_gate("G1", 0)
+            self.hw.control_gate(in_gate_cmd, 0)
             self.state.data["inputGate"]["isOpen"] = False
             self.state.log(f"ADIM 2: {target_count} şişe alındı. Giriş kilitlendi.")
             
@@ -86,7 +89,7 @@ class ProductionManager:
             
             # --- ADIM 4: ŞİŞE ÇIKIŞI ---
             self.state.log("ADIM 5: Şişeler tahliye ediliyor...")
-            self.hw.control_gate("G2", 1)
+            self.hw.control_gate(out_gate_cmd, 1)
             self.state.data["outputGate"]["isOpen"] = True
             
             # Giren şişe sayısı ile çıkan şişe sayısı eşitlenene kadar bekle
@@ -95,7 +98,7 @@ class ProductionManager:
                 await asyncio.sleep(0.1)
             
             # Tahliye bitti, çıkış kilidini kapat
-            self.hw.control_gate("G2", 0)
+            self.hw.control_gate(out_gate_cmd, 0)
             self.state.data["outputGate"]["isOpen"] = False
             self.state.log("Döngü Tamamlandı. Yeni döngüye geçiliyor.")
             

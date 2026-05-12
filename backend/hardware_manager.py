@@ -6,6 +6,7 @@ import os
 class HardwareManager:
     def __init__(self):
         self.serial_conns = {}  # {port: SerialInstance}
+        self.port_to_id_map = {} # {port: 'NANO-1'}
         self.on_input_detected = None
         self.on_output_detected = None
         self.sensor_config = []
@@ -80,6 +81,7 @@ class HardwareManager:
         
         # 1. Nano Bağlantılarını Güncelle
         active_ports = [n.get("port") for n in nanos if n.get("port")]
+        self.port_to_id_map = {n.get("port"): n.get("id") for n in nanos if n.get("port")}
         
         # Artık kullanılmayan portları kapat
         for port in list(self.serial_conns.keys()):
@@ -118,12 +120,14 @@ class HardwareManager:
                     line = conn.readline().decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    if line == "SENS:IN":
-                        self._handle_input("NANO")
-                    elif line == "SENS:OUT":
-                        self._handle_output("NANO")
+                    device_id = self.port_to_id_map.get(port, "NANO")
+                    
+                    if line == "SENS:IN" or line.startswith("P1:"):
+                        self._handle_input(device_id)
+                    elif line == "SENS:OUT" or line.startswith("P2:"):
+                        self._handle_output(device_id)
                     elif line.startswith("ACK:"):
-                        print(f"[Hardware] {port} Bildirimi: {line}")
+                        print(f"[Hardware] {device_id} ({port}) Bildirimi: {line}")
                 except Exception as e:
                     print(f"[Hardware] Okuma Hatası ({port}): {e}")
 
