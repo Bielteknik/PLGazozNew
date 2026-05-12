@@ -206,8 +206,26 @@ class HardwareManager:
     def all_off(self):
         self.send_command("VALVE_CMD:ALL:OFF")
 
-    def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
-        """Pi 5 için Hibrit Sensör Kontrolü (lgpio polling)."""
+    def cleanup_gpio(self):
+        """GPIO kaynaklarını güvenli bir şekilde serbest bırakır."""
+        self.polling_active = False
+        if hasattr(self, 'poll_thread') and self.poll_thread.is_alive():
+            # Thread'in bitmesini beklemiyoruz (daemon), sadece flag'i kapattık
+            pass
+            
+        try:
+            import lgpio
+            if hasattr(self, 'gpio_h'):
+                # Önce tüm pinleri serbest bırakmaya çalış (opsiyonel ama güvenli)
+                # lgpio'da açık chip'i kapatmak yeterlidir
+                lgpio.gpiochip_close(self.gpio_h)
+                delattr(self, 'gpio_h')
+        except:
+            pass
+
+    def setup_gpio(self, input_pin=17, output_pin=27, sensors=None):
+        """Raspberry Pi GPIO pinlerini sensörler için hazırlar."""
+        self.cleanup_gpio() # Önce eski bağlantıyı temizle (GPIO Busy hatasını önler)
         self.sensor_config = sensors or []
         try:
             import lgpio
