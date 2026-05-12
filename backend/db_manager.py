@@ -145,8 +145,8 @@ class DatabaseManager:
                 {"id": "GatesNano", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600},
                 {"id": "ValvesNano", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600}
             ],
-            "inputGate": {"id": "GATE-IN", "name": "Giriş Kapısı", "isOpen": False, "pin": "G1", "enabled": True, "position": 0},
-            "outputGate": {"id": "GATE-OUT", "name": "Çıkış Kapısı", "isOpen": False, "pin": "G2", "enabled": True, "position": 0},
+            "inputGate": {"id": "G-IN", "name": "Giriş Kapısı", "pin": "G1", "stepPin": 2, "dirPin": 5, "enPin": 8, "isOpen": False, "nanoId": "GatesNano", "enabled": True, "position": 0},
+            "outputGate": {"id": "G-OUT", "name": "Çıkış Kapısı", "pin": "G2", "stepPin": 3, "dirPin": 6, "enPin": 8, "isOpen": False, "nanoId": "GatesNano", "enabled": True, "position": 0},
             "extraGates": []
         }
         

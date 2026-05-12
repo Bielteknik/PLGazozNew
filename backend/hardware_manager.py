@@ -198,10 +198,14 @@ class HardwareManager:
                 if "outputCount" not in str(e): # Bilinen sayaç hatasını gizle
                     print(f"[Hardware] Okuma Uyarısı ({port}): {e}")
 
-    def control_valve(self, pin, state):
-        """Vana kontrolü (Broadcast)."""
-        cmd = f"VALVE_CMD:{pin}:{'ON' if state else 'OFF'}"
-        self.send_command(cmd)
+    def control_valve(self, valve_id, state):
+        """ValvesNano üzerinden vana kontrolü yapar. valve_id: 10-18"""
+        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+        if port:
+            state_str = "ON" if state else "OFF"
+            self.send_command(f"VALVE_CMD:{valve_id}:{state_str}", target_port=port)
+            return True
+        return False
 
     def toggle_valve(self, pin, state):
         self.control_valve(pin, state)
