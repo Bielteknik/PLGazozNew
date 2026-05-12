@@ -154,11 +154,12 @@ class HardwareManager:
         
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
         if port:
-            self.send_command(f"{pin}:{position}", target_port=port)
-            print(f"[Hardware] Gate {gate_id} ({pin}) -> {position}")
+            full_cmd = f"{pin}:{position}"
+            print(f"[Hardware] KOMUT GÖNDERİLİYOR -> Port: {port}, Komut: {full_cmd}")
+            self.send_command(full_cmd, target_port=port)
             return True
         else:
-            print(f"[Hardware] HATA: GatesNano bağlı değil! ({gate_id} gönderilemedi)")
+            print(f"[Hardware] HATA: GatesNano bağlı değil! (Port haritası: {self.port_to_id_map})")
         return False
 
     def update(self):
@@ -252,21 +253,32 @@ class HardwareManager:
             self.last_out_state = 1
 
             def poll_loop():
+                # Debounce sayaçları
+                in_stable_count = 0
+                out_stable_count = 0
+                required_stable = 3 # ~150ms stabilite
+
                 while self.polling_active:
                     try:
-                        # Giriş Sensörü
+                        # Giriş Sensörü (Debounce ile)
                         in_val = lgpio.gpio_read(self.gpio_h, in_pin)
-                        if in_val != self.last_in_state:
-                            if in_val == 0: self._handle_input("RASPI")
-                            self.last_in_state = in_val
-
-                        # Çıkış Sensörü
+                        if in_val == 0: # Aktif (Engel var)
+                            in_stable_count += 1
+                            if in_stable_count == required_stable:
+                                self._handle_input("RASPI")
+                        else: # Pasif (Engel yok)
+                            in_stable_count = 0
+                        
+                        # Çıkış Sensörü (Debounce ile)
                         out_val = lgpio.gpio_read(self.gpio_h, out_pin)
-                        if out_val != self.last_out_state:
-                            if out_val == 0: self._handle_output("RASPI")
-                            self.last_out_state = out_val
+                        if out_val == 0: # Aktif
+                            out_stable_count += 1
+                            if out_stable_count == required_stable:
+                                self._handle_output("RASPI")
+                        else: # Pasif
+                            out_stable_count = 0
 
-                        time.sleep(0.05) # Hızlandırıldı
+                        time.sleep(0.05)
                     except: break
 
             self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
