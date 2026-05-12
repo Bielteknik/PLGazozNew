@@ -79,13 +79,13 @@ class ProductionManager:
             # Tüm aktif vanaları aç
             for v in self.state.data.get("valves", []):
                 if v.get("enabled"):
-                    self.hw.control_valve(v["pin"], True)
+                    self.hw.control_valve(v["id"], True)
             
             await asyncio.sleep(fill_time)
             
             # Vanaları kapat
             for v in self.state.data.get("valves", []):
-                self.hw.control_valve(v["pin"], False)
+                self.hw.control_valve(v["id"], False)
             
             # --- ADIM 3: DENGELEME ---
             settle_time = self.current_recipe.get("settlingTimeMs", 500) / 1000.0
@@ -109,6 +109,10 @@ class ProductionManager:
             
             # Her döngü sonunda bir miktar bekle
             await asyncio.sleep(1)
-            
-            # Değişiklik kontrolü (Eğer parametreler değiştiyse döngü başında durabilir veya prompt verebiliriz)
-            # Şimdilik direkt devam ediyor.
+
+    def handle_sensor(self, device_id, sensor_type="IN"):
+        """Sensör tetiklendiğinde adet artırır."""
+        if sensor_type == "IN":
+            self.state.increment_input()
+        else:
+            self.state.increment_output()

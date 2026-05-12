@@ -62,7 +62,7 @@ class StateManager:
                 v["isOpen"] = not v.get("isOpen", False)
                 state_str = "AÇIK" if v["isOpen"] else "KAPALI"
                 self.log(f"Valf {valve_id} Manuel: {state_str}")
-                self.hw.control_valve(v["pin"], v["isOpen"])
+                self.hw.control_valve(valve_id, v["isOpen"])
                 break
 
     def increment_input(self):

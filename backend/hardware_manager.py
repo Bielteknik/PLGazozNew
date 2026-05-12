@@ -72,12 +72,12 @@ class HardwareManager:
         conn = self.serial_conns.get(port)
         return conn is not None and conn.is_open
 
-    def control_valve(self, pin, state):
-        """ValvesNano üzerinden vana kontrolü yapar."""
+    def control_valve(self, valve_id, state):
+        """ValvesNano üzerinden vana kontrolü yapar. valve_id: 10-18"""
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
         if port:
             state_str = "ON" if state else "OFF"
-            self.send_command(f"VALVE_CMD:{pin}:{state_str}", target_port=port)
+            self.send_command(f"VALVE_CMD:{valve_id}:{state_str}", target_port=port)
             return True
         return False
 
@@ -166,8 +166,10 @@ class HardwareManager:
                         payload = ":".join(parts[1:])
                         
                         if device_id in ["GatesNano", "ValvesNano"]:
-                            if "P1:" in payload: self._handle_input(device_id)
-                            elif "P2:" in payload: self._handle_output(device_id)
+                            if "P1:IN" in payload: 
+                                if self.on_input_detected: self.on_input_detected(device_id, "IN")
+                            elif "P1:OUT" in payload:
+                                if self.on_input_detected: self.on_input_detected(device_id, "OUT")
                             elif "ACK:" in payload:
                                 print(f"[Hardware] {device_id} Onay: {payload}")
                         elif line.startswith("ID:"):
