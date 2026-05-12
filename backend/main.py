@@ -230,44 +230,67 @@ async def broadcast_loop():
         
         state.data["serialPorts"] = refresh_ports()
         
-        # Nano bağlantı durumlarını kontrol et ve kopanları geri bağla
-        for n in state.data.get("nanos", []):
+        # --- Nano Donanım Yönetimi & Otonom Eşleştirme ---
+        nanos = state.data.get("nanos", [])
+        initial_nano_count = len(nanos)
+        
+        # 1. Temizlik: Sadece meşru donanımları tut (Hayaletleri sil)
+        nanos = [n for n in nanos if n['id'] in ['GatesNano', 'ValvesNano']]
+        if len(nanos) != initial_nano_count:
+            print(f"[Auto-Clean] {initial_nano_count - len(nanos)} adet hayalet donanım silindi.")
+            db.save_state("nanos", nanos)
+            state.data["nanos"] = nanos
+
+        for n in nanos:
             port = n.get("port")
             if port:
                 is_online = hw.is_port_online(port)
                 if not is_online:
                     # Otomatik keşfet ve bağlan
-                    print(f"[Auto-Discovery] {n['id']} koptu, taranıyor...")
-                    hw.find_and_connect(n['id'])
-                    is_online = hw.is_port_online(n.get("port", ""))
+                    if hw.find_and_connect(n['id']):
+                        # Yeni portu kaydet
+                        for p, d_id in hw.port_to_id_map.items():
+                            if d_id == n['id']:
+                                n['port'] = p
+                                break
+                        is_online = True
                 
                 n["status"] = "ONLINE" if is_online else "OFFLINE"
                 
-                # --- Otomatik Eşleştirme (Auto-Mapping) ---
+                # 2. Otonom Eşleştirme & Kalıcı Kayıt
                 if is_online:
                     if n['id'] == 'ValvesNano':
-                        # Tüm valfleri ValvesNano'ya mühürle
                         valves_updated = False
                         for v in state.data.get("valves", []):
                             if v.get("connectionId") != "ValvesNano":
                                 v["connectionId"] = "ValvesNano"
                                 valves_updated = True
-                        
                         if valves_updated:
-                            print(f"[Auto-Map] Tüm Valf Kartları -> ValvesNano üzerine mühürlendi.")
+                            print(f"[Auto-Config] ValvesNano eşleşti, valfler kaydedildi.")
                             db.save_state("valves", state.data["valves"])
                     
                     elif n['id'] == 'GatesNano':
-                        # Tüm sensörleri ve sistem kilitlerini GatesNano'ya bağla
+                        gates_updated = False
+                        # Sensörleri Arduino moduna al ve GatesNano'ya bağla
                         for s in state.data.get("sensors", []):
-                            if s.get("device") != "GatesNano":
+                            if s.get("device") != "GatesNano" or s.get("type") != "ARDUINO":
                                 s["device"] = "GatesNano"
-                                print(f"[Auto-Map] Sensör {s['id']} -> GatesNano")
+                                s["type"] = "ARDUINO" # Arduino moduna zorla
+                                gates_updated = True
                         
+                        # Kilitleri bağla
                         if state.data.get("inputGate", {}).get("nanoId") != "GatesNano":
                             state.data["inputGate"]["nanoId"] = "GatesNano"
+                            gates_updated = True
                         if state.data.get("outputGate", {}).get("nanoId") != "GatesNano":
                             state.data["outputGate"]["nanoId"] = "GatesNano"
+                            gates_updated = True
+                            
+                        if gates_updated:
+                            print(f"[Auto-Config] GatesNano eşleşti, kilitler ve sensörler kaydedildi.")
+                            db.save_state("sensors", state.data["sensors"])
+                            db.save_state("inputGate", state.data["inputGate"])
+                            db.save_state("outputGate", state.data["outputGate"])
         
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
