@@ -33,9 +33,17 @@ class StateManager:
         db_state = self.db.get_all_state()
         self.data.update(db_state)
         
+        # Temel sayaçların varlığından emin ol
+        if "inputCount" not in self.data: self.data["inputCount"] = 0
+        if "outputCount" not in self.data: self.data["outputCount"] = 0
+        
         # Reçeteleri ayrıca yükle
         self.data["recipes"] = self.db.get_recipes()
         self.log("Yapılandırma veritabanından yüklendi.")
+        
+        # Her yüklemede donanım tarafına haber ver (Pi Sensörlerini aktive etmesi için)
+        if hasattr(self, 'hw'):
+            self.hw.apply_config(self.data.get("nanos", []), self.data.get("sensors", []))
 
     def set_mode(self, mode):
         self.data["mode"] = mode

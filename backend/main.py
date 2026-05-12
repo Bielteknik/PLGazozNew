@@ -270,11 +270,11 @@ async def broadcast_loop():
                     
                     elif n['id'] == 'GatesNano':
                         gates_updated = False
-                        # Sensörleri Arduino moduna al ve GatesNano'ya bağla
+                        # Sensörleri Raspberry Pi moduna zorla (Kullanıcı isteği)
                         for s in state.data.get("sensors", []):
-                            if s.get("device") != "GatesNano" or s.get("type") != "ARDUINO":
-                                s["device"] = "GatesNano"
-                                s["type"] = "ARDUINO" # Arduino moduna zorla
+                            if s.get("type") != "RASPI":
+                                s["device"] = "RASPI"
+                                s["type"] = "RASPI"
                                 gates_updated = True
                         
                         # Kilitleri bağla

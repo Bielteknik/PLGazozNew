@@ -248,16 +248,12 @@ class HardwareManager:
             print(f"[GPIO] Kurulum Hatası (Muhtemelen Pi değil): {e}")
 
     def _handle_input(self, source):
-        for s in self.sensor_config:
-            if s.get("type") == "INPUT" and s.get("device") == source and s.get("enabled"):
-                print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")
-                if self.on_input_detected: self.on_input_detected()
+        print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")
+        if self.on_input_detected: self.on_input_detected(source, "IN")
 
     def _handle_output(self, source):
-        for s in self.sensor_config:
-            if s.get("type") == "OUTPUT" and s.get("device") == source and s.get("enabled"):
-                print(f">>> ÇIKIŞ SENSÖRÜ ({source}) TETİKLENDİ")
-                if self.on_output_detected: self.on_output_detected()
+        print(f">>> ÇIKIŞ SENSÖRÜ ({source}) TETİKLENDİ")
+        if self.on_input_detected: self.on_input_detected(source, "OUT")
 
     def cleanup(self):
         self.polling_active = False
