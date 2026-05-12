@@ -57,43 +57,42 @@ class DatabaseManager:
                     cursor.execute("INSERT INTO system_state (key, value) VALUES ('mode', '\"MANUEL\"')")
             
             conn.commit()
-                # Mevcut verideki eski ID'leri yeni isimlendirmeye zorla (Migration)
-                cursor.execute("SELECT key, value FROM system_state WHERE key IN ('nanos', 'sensors')")
-                rows = cursor.fetchall()
-                for row in rows:
-                    key = row['key']
-                    data = json.loads(row['value'])
-                    updated = False
-                    
-                    if key == 'nanos':
-                        # Sadece GatesNano ve ValvesNano'yu tut, diğerlerini sil
-                        new_nanos = []
-                        for n in data:
-                            if n['id'] == 'NANO-1' or n['id'] == 'GatesNano':
-                                n['id'] = 'GatesNano'
-                                n['name'] = 'Kilit ve Sensörler'
-                                new_nanos.append(n)
-                                updated = True
-                            elif n['id'] == 'NANO-2' or n['id'] == 'ValvesNano':
-                                n['id'] = 'ValvesNano'
-                                n['name'] = 'Valf Kontrol'
-                                new_nanos.append(n)
-                                updated = True
-                        
-                        if updated:
-                            data = new_nanos # Hayaletleri sildik
-                    
-                    elif key == 'sensors':
-                        for s in data:
-                            if s['device'] == 'NANO' or s['device'] == 'NANO-1':
-                                s['device'] = 'GatesNano'
-                                updated = True
+            
+            # Mevcut verideki eski ID'leri yeni isimlendirmeye zorla (Migration)
+            cursor.execute("SELECT key, value FROM system_state WHERE key IN ('nanos', 'sensors')")
+            rows = cursor.fetchall()
+            for row in rows:
+                key = row['key']
+                data = json.loads(row['value'])
+                updated = False
+                
+                if key == 'nanos':
+                    # Sadece GatesNano ve ValvesNano'yu tut, diğerlerini sil
+                    new_nanos = []
+                    for n in data:
+                        if n['id'] == 'NANO-1' or n['id'] == 'GatesNano':
+                            n['id'] = 'GatesNano'
+                            n['name'] = 'Kilit ve Sensörler'
+                            new_nanos.append(n)
+                            updated = True
+                        elif n['id'] == 'NANO-2' or n['id'] == 'ValvesNano':
+                            n['id'] = 'ValvesNano'
+                            n['name'] = 'Valf Kontrol'
+                            new_nanos.append(n)
+                            updated = True
                     
                     if updated:
-                        cursor.execute("UPDATE system_state SET value = ? WHERE key = ?", (json.dumps(data), key))
-            
-            conn.commit()
+                        data = new_nanos # Hayaletleri sildik
                 
+                elif key == 'sensors':
+                    for s in data:
+                        if s['device'] == 'NANO' or s['device'] == 'NANO-1':
+                            s['device'] = 'GatesNano'
+                            updated = True
+                
+                if updated:
+                    cursor.execute("UPDATE system_state SET value = ? WHERE key = ?", (json.dumps(data), key))
+            
             conn.commit()
             print(f"[DB] Veritabanı bağlantısı başarılı.")
 
