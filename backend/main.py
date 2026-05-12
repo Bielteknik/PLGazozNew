@@ -290,6 +290,8 @@ async def broadcast_loop():
                             db.save_state("sensors", state.data["sensors"])
                             db.save_state("inputGate", state.data["inputGate"])
                             db.save_state("outputGate", state.data["outputGate"])
+                            # Donanıma yeni sensör modunu bildir!
+                            hw.apply_config(state.data["nanos"], state.data["sensors"])
         
         # --- Durum Temizliği (Frontend Çökme Koruması) ---
         for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts"]:
