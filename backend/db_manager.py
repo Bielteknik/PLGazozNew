@@ -50,6 +50,13 @@ class DatabaseManager:
             if cursor.fetchone()[0] == 0:
                 print("[DB] İlk kurulum: Varsayılan veriler tohumlanıyor...")
                 self._seed_default_data(cursor)
+            else:
+                # Mod anahtarı yoksa ekle
+                cursor.execute("SELECT COUNT(*) FROM system_state WHERE key = 'mode'")
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("INSERT INTO system_state (key, value) VALUES ('mode', '\"MANUEL\"')")
+            
+            conn.commit()
                 # Mevcut verideki eski ID'leri yeni isimlendirmeye zorla (Migration)
                 cursor.execute("SELECT key, value FROM system_state WHERE key IN ('nanos', 'sensors')")
                 rows = cursor.fetchall()
@@ -92,6 +99,7 @@ class DatabaseManager:
 
     def _seed_default_data(self, cursor):
         defaults = {
+            "mode": "MANUEL",
             "config": {
                 "recipeId": "RECIPE-1",
                 "volumeMl": 250,
