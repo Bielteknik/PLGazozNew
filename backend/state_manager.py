@@ -18,7 +18,11 @@ class StateManager:
             "activePrompt": None,
             "isWashingDone": False,
             "isWashingRequired": False,
-            "stopAfterCycleRequested": False
+            "stopAfterCycleRequested": False,
+            "recipes": [],
+            "valves": [],
+            "sensors": [],
+            "nanos": []
         }
         
         # Diğer tüm konfigürasyonu Database'den yükle

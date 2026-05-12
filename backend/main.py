@@ -292,6 +292,11 @@ async def broadcast_loop():
                             db.save_state("inputGate", state.data["inputGate"])
                             db.save_state("outputGate", state.data["outputGate"])
         
+        # --- Durum Temizliği (Frontend Çökme Koruması) ---
+        for key in ["nanos", "valves", "sensors", "recipes"]:
+            if key not in state.data or state.data[key] is None:
+                state.data[key] = []
+        
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
 
