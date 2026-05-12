@@ -95,7 +95,7 @@ export function useSocketState() {
     operateExtraGate: (id: string) => emitAction('OPERATE_EXTRA_GATE', { id }),
     addNano: () => emitAction('ADD_HARDWARE', { nano: { id: `NANO-${Date.now()}`, name: 'Yeni Nano', port: '/dev/ttyUSB0', status: 'OFFLINE', pingMs: 0, baudRate: 9600 } }),
     removeNano: (id: string) => emitAction('REMOVE_HARDWARE', { id }),
-    resetCounter: (target: 'input' | 'output') => emitAction('RESET_COUNTER', { target }),
+    resetCounter: (target: 'input' | 'output', op: 'inc' | 'dec' | 'reset' = 'reset') => emitAction('MANAGE_COUNTER', { target, op }),
     selectRecipe: (id: string) => emitAction('SELECT_RECIPE', { id }),
     updateRecipe: (id: string, updates: Partial<Recipe>) => emitAction('UPDATE_RECIPE', { id, updates }),
     addRecipe: (recipe: Recipe) => emitAction('ADD_RECIPE', { recipe }),

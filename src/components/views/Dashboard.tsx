@@ -11,7 +11,7 @@ interface DashboardProps {
   onStop: () => void;
   onStartWashing: () => void;
   onStopWashing: () => void;
-  onResetCounter: (target: 'input' | 'output') => void;
+  onResetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onSelectRecipe: (id: string) => void;
   onAnswerPrompt: (answer: boolean) => void;
   onStopAfterCycle: () => void;
@@ -214,23 +214,37 @@ export function Dashboard({
               
               {/* Target / Progress Line */}
               <div className="absolute top-0 w-full flex justify-between px-8">
-                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937] text-center w-24 relative flex flex-col items-center">
+                  <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937] text-center w-28 relative flex flex-col items-center">
                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
                        <div className={cn("w-6 h-1 rounded-full", data.sensors.find(s=>s.id=='SENS-IN')?.enabled ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]")} />
                     </div>
                     <div className="text-[10px] text-gray-500 mb-1 font-bold">GİRİŞ</div>
-                    <div className="text-2xl font-mono text-[#F97316] leading-none">{data.inputCount}</div>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => onResetCounter('input', 'reset')} className="p-1 hover:bg-gray-800 rounded transition-colors text-orange-500/50 hover:text-orange-500"><RefreshCw size={10} /></button>
+                       <div className="text-2xl font-mono text-[#F97316] leading-none">{data.inputCount}</div>
+                       <div className="flex flex-col gap-0.5">
+                          <button onClick={() => onResetCounter('input', 'inc')} className="p-0.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowUp size={8} /></button>
+                          <button onClick={() => onResetCounter('input', 'dec')} className="p-0.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowDown size={8} /></button>
+                       </div>
+                    </div>
                  </div>
                  <div className="bg-[#1e1b4b] p-2 rounded border border-[#312e81] text-center w-24">
                     <div className="text-[10px] text-gray-400 mb-1 font-bold">HEDEF</div>
                     <div className="text-2xl font-mono text-blue-400 leading-none">{data.config.targetCount}</div>
                  </div>
-                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937] text-center w-24 relative flex flex-col items-center">
+                 <div className="bg-[#0D1016] p-2 rounded border border-[#1F2937] text-center w-28 relative flex flex-col items-center">
                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
                        <div className={cn("w-6 h-1 rounded-full", data.sensors.find(s=>s.id=='SENS-OUT')?.enabled ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]")} />
                     </div>
                     <div className="text-[10px] text-gray-500 mb-1 font-bold">ÇIKIŞ</div>
-                    <div className="text-2xl font-mono text-green-400 leading-none">{data.outputCount}</div>
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => onResetCounter('output', 'reset')} className="p-1 hover:bg-gray-800 rounded transition-colors text-emerald-500/50 hover:text-emerald-500"><RefreshCw size={10} /></button>
+                       <div className="text-2xl font-mono text-green-400 leading-none">{data.outputCount}</div>
+                       <div className="flex flex-col gap-0.5">
+                          <button onClick={() => onResetCounter('output', 'inc')} className="p-0.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowUp size={8} /></button>
+                          <button onClick={() => onResetCounter('output', 'dec')} className="p-0.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowDown size={8} /></button>
+                       </div>
+                    </div>
                  </div>
               </div>
 

@@ -25,7 +25,8 @@ interface ManualControlProps {
   setValveMode: (id: number, mode: 'MANUAL' | 'AUTO') => void;
   setValvePulseDuration: (id: number, duration: number) => void;
   toggleGateEnabled: (target: 'inputGate' | 'outputGate') => void;
-  onResetCounter: (type: 'input' | 'output') => void;
+  onResetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
+  onToggleHardwareStatus: (id: number) => void;
   manualLogin: (password: string) => void;
   manualToken: string | null;
   manualExpires: number | null;
@@ -40,6 +41,7 @@ export function ManualControl({
   setValvePulseDuration, 
   toggleGateEnabled, 
   onResetCounter,
+  onToggleHardwareStatus,
   manualLogin,
   manualToken,
   manualExpires
@@ -266,100 +268,128 @@ export function ManualControl({
                   </div>
                 </div>
                 
-                <div className="flex-1 flex flex-col justify-center items-center relative w-full pt-8">
-                  {/* Visual UI Elements */}
-                    <div className="flex-1 flex items-center justify-between gap-12 max-w-5xl mx-auto">
-                       {/* Input Gate */}
-                       <div className="flex flex-col items-center gap-3">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase">GİRİŞ KİLİDİ</span>
-                          <button 
-                            onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 100)}
-                            className={cn(
-                              "w-16 h-16 rounded border-4 flex items-center justify-center transition-all",
-                              data.inputGate.isOpen ? "bg-emerald-600 border-emerald-400 shadow-lg shadow-emerald-500/50" : "bg-gray-800 border-gray-700"
-                            )}
-                          >
-                             <Lock size={24} className={data.inputGate.isOpen ? "text-white" : "text-gray-600"} />
-                          </button>
-                          <div className="flex items-center gap-2">
-                             <div className={cn("w-3 h-3 rounded-full", data.sensors.find(s=>s.id==='SENS-IN')?.enabled ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500")} />
-                             <span className="text-[9px] font-mono text-gray-400">LAZER 1</span>
-                          </div>
-                       </div>
-
-                       {/* Valves Group */}
-                       <div className="flex items-center gap-4 py-4 px-8 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
-                          {data.valves.map(v => (
-                            <div key={v.id} className="flex flex-col items-center gap-2">
-                               <button 
-                                 onClick={() => toggleValve(v.id)}
-                                 className={cn(
-                                   "w-12 h-12 rounded-full border-4 flex items-center justify-center transition-all",
-                                   v.isOpen ? "bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/50" : "bg-gray-800 border-gray-700"
-                                 )}
-                               >
-                                  <Droplet size={20} className={v.isOpen ? "text-white" : "text-gray-600"} />
-                               </button>
-                               <span className="text-[8px] font-bold text-gray-500">{v.name || `VALF ${v.id}`}</span>
-                            </div>
-                          ))}
-                       </div>
-
-                       {/* Output Gate */}
-                       <div className="flex flex-col items-center gap-3">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase">ÇIKIŞ KİLİDİ</span>
-                          <button 
-                            onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 100)}
-                            className={cn(
-                              "w-16 h-16 rounded border-4 flex items-center justify-center transition-all",
-                              data.outputGate.isOpen ? "bg-emerald-600 border-emerald-400 shadow-lg shadow-emerald-500/50" : "bg-gray-800 border-gray-700"
-                            )}
-                          >
-                             <Lock size={24} className={data.outputGate.isOpen ? "text-white" : "text-gray-600"} />
-                          </button>
-                          <div className="flex items-center gap-2">
-                             <div className={cn("w-3 h-3 rounded-full", data.sensors.find(s=>s.id==='SENS-OUT')?.enabled ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500")} />
-                             <span className="text-[9px] font-mono text-gray-400">LAZER 2</span>
-                          </div>
-                       </div>
-                    </div>
+                <div className="flex-1 flex flex-col justify-center items-center relative w-full">
+                  {/* Conveyor graphic */}
+                  <div className="w-full mt-4 h-48 border-y-4 border-[#374151] bg-[#0D1016]/50 flex items-center justify-between px-16 relative">
+                     
+                     {/* Input Gate */}
+                     <div className="absolute left-10 -bottom-16 flex flex-col items-center z-20">
+                        <div className="h-44 w-6 flex items-end overflow-hidden">
+                           <motion.div 
+                             initial={false}
+                             animate={{ y: data.inputGate.isOpen ? '100%' : '0%' }}
+                             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.inputGate.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
+                           />
+                        </div>
+                        <div className="w-16 h-14 bg-[#1C2029] border-2 border-[#3E4C59] rounded-b-lg flex flex-col items-center justify-center z-10 shadow-xl relative -top-2">
+                           <button 
+                             onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 1)}
+                             className="absolute -top-3.5 bg-[#151921] rounded-full p-1 z-20 flex items-center justify-center h-8 w-8 shadow-lg border border-[#374151] hover:scale-110 transition-transform active:scale-95"
+                           >
+                              <Lock size={14} className={cn(data.inputGate.isOpen ? "text-green-500 hidden" : "text-red-500")} />
+                              <Unlock size={14} className={cn(data.inputGate.isOpen ? "text-green-500" : "hidden")} />
+                           </button>
+                           <div className={cn("w-6 h-2 rounded-full mb-1", data.inputGate.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
+                           <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none uppercase">Giriş</div>
+                        </div>
+                     </div>
+                     
+                     {/* Valves */}
+                     <div className="absolute left-32 right-32 top-0 flex justify-between px-2 -mt-4 z-10">
+                        {[...data.valves].reverse().map((valve) => (
+                           <div key={valve.id} className="flex flex-col items-center w-10">
+                              <button 
+                                onClick={() => toggleValve(valve.id)}
+                                className={cn(
+                                 "w-10 h-10 rounded shadow-md border-2 relative transition-colors flex items-center justify-center hover:ring-2 ring-white/20", 
+                                 !valve.enabled
+                                  ? "bg-red-900/50 border-red-800 text-red-500 opacity-50"
+                                  : (valve.isOpen) 
+                                    ? "bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_12px_rgba(217,70,239,0.8)] text-white" 
+                                    : "bg-[#2D333F] border-[#1F2937] text-gray-500"
+                               )}>
+                                 <span className="text-[10px] font-bold">{valve.name || valve.id}</span>
+                              </button>
+                              <div className={cn("w-2.5 h-6 mt-1 rounded-b-sm relative z-20", !valve.enabled ? "bg-red-900/50 opacity-50" : "bg-[#1F2937]")} />
+                              <AnimatePresence>
+                                {valve.isOpen && (
+                                  <motion.div 
+                                    initial={{ height: 0, opacity: 1 }}
+                                    animate={{ height: 60, opacity: 0 }}
+                                    transition={{ repeat: Infinity, duration: 0.5 }}
+                                    className="w-1.5 mt-0.5 absolute top-[60px] rounded-full z-10 bg-fuchsia-500 shadow-[0_0_8px_rgba(217,70,239,0.6)]"
+                                  />
+                                )}
+                              </AnimatePresence>
+                           </div>
+                        ))}
+                     </div>
+                     
+                     {/* Output Gate */}
+                     <div className="absolute right-10 -bottom-16 flex flex-col items-center z-20">
+                        <div className="h-44 w-6 flex items-end overflow-hidden">
+                           <motion.div 
+                             initial={false}
+                             animate={{ y: data.outputGate.isOpen ? '100%' : '0%' }}
+                             transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.outputGate.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
+                           />
+                        </div>
+                        <div className="w-16 h-14 bg-[#1C2029] border-2 border-[#3E4C59] rounded-b-lg flex flex-col items-center justify-center z-10 shadow-xl relative -top-2">
+                           <button 
+                             onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 1)}
+                             className="absolute -top-3.5 bg-[#151921] rounded-full p-1 z-20 flex items-center justify-center h-8 w-8 shadow-lg border border-[#374151] hover:scale-110 transition-transform active:scale-95"
+                           >
+                              <Lock size={14} className={cn(data.outputGate.isOpen ? "text-green-500 hidden" : "text-red-500")} />
+                              <Unlock size={14} className={cn(data.outputGate.isOpen ? "text-green-500" : "hidden")} />
+                           </button>
+                           <div className={cn("w-6 h-2 rounded-full mb-1", data.outputGate.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
+                           <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none uppercase">Çıkış</div>
+                        </div>
+                     </div>
+                  </div>
                 </div>
               </div>
               
               <div className="col-span-12 lg:col-span-3 flex flex-col gap-4">
-                 <div className="bg-[#151921] border border-[#2D333F] rounded p-4 flex flex-col gap-4">
-                    <div className="flex justify-between items-center p-2 bg-[#0D1016] rounded border border-gray-800">
+                 <div className="bg-[#151921] border border-[#2D333F] rounded p-4 flex flex-col gap-4 shadow-xl">
+                    <div className="flex justify-between items-center p-3 bg-[#0D1016] rounded border border-gray-800">
                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase leading-none">Giriş Adet</span>
-                          <button 
-                            onClick={() => onResetCounter('input')}
-                            className="text-[8px] text-orange-500/50 hover:text-orange-500 font-bold mt-1 text-left transition-colors"
-                          >
-                            SIFIRLA
-                          </button>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase leading-none mb-1">Giriş Adet</span>
+                          <button onClick={() => onResetCounter('input', 'reset')} className="p-1 w-fit bg-gray-800 rounded text-orange-500/50 hover:text-orange-500 transition-colors"><RefreshCw size={10} /></button>
                        </div>
-                       <span className="text-xl font-mono text-orange-500 font-black">{data.inputCount}</span>
+                       <div className="flex items-center gap-4">
+                          <span className="text-2xl font-mono text-orange-500 font-black">{data.inputCount}</span>
+                          <div className="flex flex-col gap-1">
+                             <button onClick={() => onResetCounter('input', 'inc')} className="p-1 bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowUp size={10} /></button>
+                             <button onClick={() => onResetCounter('input', 'dec')} className="p-1 bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowDown size={10} /></button>
+                          </div>
+                       </div>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-[#0D1016] rounded border border-gray-800">
+                    
+                    <div className="flex justify-between items-center p-3 bg-[#0D1016] rounded border border-gray-800">
                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase leading-none">Çıkış Adet</span>
-                          <button 
-                            onClick={() => onResetCounter('output')}
-                            className="text-[8px] text-emerald-500/50 hover:text-emerald-500 font-bold mt-1 text-left transition-colors"
-                          >
-                            SIFIRLA
-                          </button>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase leading-none mb-1">Çıkış Adet</span>
+                          <button onClick={() => onResetCounter('output', 'reset')} className="p-1 w-fit bg-gray-800 rounded text-emerald-500/50 hover:text-emerald-500 transition-colors"><RefreshCw size={10} /></button>
                        </div>
-                       <span className="text-xl font-mono text-emerald-500 font-black">{data.outputCount}</span>
+                       <div className="flex items-center gap-4">
+                          <span className="text-2xl font-mono text-emerald-500 font-black">{data.outputCount}</span>
+                          <div className="flex flex-col gap-1">
+                             <button onClick={() => onResetCounter('output', 'inc')} className="p-1 bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowUp size={10} /></button>
+                             <button onClick={() => onResetCounter('output', 'dec')} className="p-1 bg-gray-800 rounded text-gray-400 hover:text-white"><ArrowDown size={10} /></button>
+                          </div>
+                       </div>
                     </div>
                  </div>
+                 
                  <div className="flex-1 bg-orange-950/10 border border-orange-500/10 rounded p-4 flex flex-col">
                     <div className="flex items-center gap-2 mb-4">
                        <AlertCircle size={16} className="text-orange-500" />
-                       <h3 className="text-[10px] font-bold text-gray-300 uppercase">Güvenlik</h3>
+                       <h3 className="text-[10px] font-bold text-gray-300 uppercase">Güvenlik Uyarısı</h3>
                     </div>
                     <p className="text-[10px] text-orange-400/80 italic leading-relaxed">
-                       Manuel modda donanım limitleri denetlenmez. Tüm operasyonlardan operatör sorumludur.
+                       Manuel modda tüm donanım limitleri (lazer sensörler, kilit mevcudiyeti vb.) devre dışıdır. Hareketlerden operatör sorumludur.
                     </p>
                  </div>
               </div>
