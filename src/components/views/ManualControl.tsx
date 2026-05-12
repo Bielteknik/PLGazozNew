@@ -51,19 +51,19 @@ export function ManualControl({
 }: ManualControlProps) {
   const [password, setPassword] = useState('');
   const [selectedTab, setSelectedTab] = useState<'visual' | 'recipe_test'>('visual');
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string>(data.config.recipeId || '');
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string>(data.config?.recipeId || '');
   const [selectedValveId, setSelectedValveId] = useState<number | null>(null);
   const [testDuration, setTestDuration] = useState<number>(1000);
 
-  const selectedRecipe = data.recipes.find(r => r.id === selectedRecipeId);
+  const selectedRecipe = data.recipes?.find(r => r.id === selectedRecipeId);
   
   useEffect(() => {
     if (selectedRecipe) {
       setTestDuration(selectedRecipe.fillTimeMs || 1000);
-      const firstActiveValve = data.valves.find(v => v.enabled);
+      const firstActiveValve = data.valves?.find(v => v.enabled);
       if (firstActiveValve) setSelectedValveId(firstActiveValve.id);
     }
-  }, [selectedRecipeId, data.recipes]);
+  }, [selectedRecipeId, data.recipes, selectedRecipe, data.valves]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,27 +183,27 @@ export function ManualControl({
                         <div className="h-44 w-6 flex items-end overflow-hidden">
                            <motion.div 
                              initial={false}
-                             animate={{ y: data.inputGate.isOpen ? '100%' : '0%' }}
+                             animate={{ y: data.inputGate?.isOpen ? '100%' : '0%' }}
                              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.inputGate.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
+                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.inputGate?.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
                            />
                         </div>
                         <div className="w-16 h-14 bg-[#1C2029] border-2 border-[#3E4C59] rounded-b-lg flex flex-col items-center justify-center z-10 shadow-xl relative -top-2">
                            <button 
-                             onClick={() => operateGate('inputGate', data.inputGate.isOpen ? 0 : 1)}
+                             onClick={() => operateGate('inputGate', data.inputGate?.isOpen ? 0 : 1)}
                              className="absolute -top-3.5 bg-[#151921] rounded-full p-1 z-20 flex items-center justify-center h-8 w-8 shadow-lg border border-[#374151] hover:scale-110 transition-transform active:scale-95"
                            >
-                              <Lock size={14} className={cn(data.inputGate.isOpen ? "text-green-500 hidden" : "text-red-500")} />
-                              <Unlock size={14} className={cn(data.inputGate.isOpen ? "text-green-500" : "hidden")} />
+                              <Lock size={14} className={cn(data.inputGate?.isOpen ? "text-green-500 hidden" : "text-red-500")} />
+                              <Unlock size={14} className={cn(data.inputGate?.isOpen ? "text-green-500" : "hidden")} />
                            </button>
-                           <div className={cn("w-6 h-2 rounded-full mb-1", data.inputGate.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
+                           <div className={cn("w-6 h-2 rounded-full mb-1", data.inputGate?.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
                            <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none uppercase">Giriş</div>
                         </div>
                      </div>
                      
                      {/* Valves */}
                      <div className="absolute left-32 right-32 top-0 flex justify-between px-2 -mt-4 z-10">
-                        {[...data.valves].reverse().map((valve) => (
+                        {[...(data.valves || [])].reverse().map((valve) => (
                            <div key={valve.id} className="flex flex-col items-center w-10">
                               <button 
                                 onClick={() => toggleValve(valve.id)}
@@ -237,20 +237,20 @@ export function ManualControl({
                         <div className="h-44 w-6 flex items-end overflow-hidden">
                            <motion.div 
                              initial={false}
-                             animate={{ y: data.outputGate.isOpen ? '100%' : '0%' }}
+                             animate={{ y: data.outputGate?.isOpen ? '100%' : '0%' }}
                              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.outputGate.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
+                             className={cn("w-full h-32 rounded-t-md transition-colors border-2", data.outputGate?.isOpen ? "bg-green-500/80 border-green-400" : "bg-red-500 border-red-700")}
                            />
                         </div>
                         <div className="w-16 h-14 bg-[#1C2029] border-2 border-[#3E4C59] rounded-b-lg flex flex-col items-center justify-center z-10 shadow-xl relative -top-2">
                            <button 
-                             onClick={() => operateGate('outputGate', data.outputGate.isOpen ? 0 : 1)}
+                             onClick={() => operateGate('outputGate', data.outputGate?.isOpen ? 0 : 1)}
                              className="absolute -top-3.5 bg-[#151921] rounded-full p-1 z-20 flex items-center justify-center h-8 w-8 shadow-lg border border-[#374151] hover:scale-110 transition-transform active:scale-95"
                            >
-                              <Lock size={14} className={cn(data.outputGate.isOpen ? "text-green-500 hidden" : "text-red-500")} />
-                              <Unlock size={14} className={cn(data.outputGate.isOpen ? "text-green-500" : "hidden")} />
+                              <Lock size={14} className={cn(data.outputGate?.isOpen ? "text-green-500 hidden" : "text-red-500")} />
+                              <Unlock size={14} className={cn(data.outputGate?.isOpen ? "text-green-500" : "hidden")} />
                            </button>
-                           <div className={cn("w-6 h-2 rounded-full mb-1", data.outputGate.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
+                           <div className={cn("w-6 h-2 rounded-full mb-1", data.outputGate?.isOpen ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]")} />
                            <div className="text-[9px] text-gray-500 font-bold tracking-wider leading-none uppercase">Çıkış</div>
                         </div>
                      </div>
@@ -322,7 +322,7 @@ export function ManualControl({
                         onChange={(e) => setSelectedRecipeId(e.target.value)}
                         className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
                       >
-                        {data.recipes.map(r => (
+                        {(data.recipes || []).map(r => (
                           <option key={r.id} value={r.id}>{r.name}</option>
                         ))}
                       </select>
@@ -335,7 +335,7 @@ export function ManualControl({
                         onChange={(e) => setSelectedValveId(Number(e.target.value))}
                         className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
                       >
-                        {data.valves.filter(v => v.enabled).map(v => (
+                        {(data.valves || []).filter(v => v.enabled).map(v => (
                           <option key={v.id} value={v.id}>{v.name || `Vana ${v.id}`}</option>
                         ))}
                       </select>
