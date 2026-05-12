@@ -14,17 +14,10 @@ class DatabaseManager:
         return conn
 
     def init_db(self):
-        # Önceki veritabanını sil (Sütun hatalarını önlemek için)
-        if os.path.exists(self.db_path):
-            try:
-                os.remove(self.db_path)
-            except:
-                pass
-            
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            cursor.execute('CREATE TABLE system_state (key TEXT PRIMARY KEY, value TEXT)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS system_state (key TEXT PRIMARY KEY, value TEXT)')
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS recipes (
@@ -52,69 +45,72 @@ class DatabaseManager:
                 )
             ''')
 
-            self._seed_default_data(cursor)
+            # Temel veriler eksikse tohumla
+            cursor.execute("SELECT count(*) FROM system_state")
+            if cursor.fetchone()[0] == 0:
+                print("[DB] İlk kurulum: Varsayılan veriler tohumlanıyor...")
+                self._seed_default_data(cursor)
+                
             conn.commit()
-            print(f"[DB] Veritabanı başarıyla güncellendi ve kuruldu.")
+            print(f"[DB] Veritabanı bağlantısı başarılı.")
 
     def _seed_default_data(self, cursor):
-        default_config = {
-            "recipeId": "RECIPE-1",
-            "volumeMl": 250,
-            "targetCount": 9,
-            "fillTimeMs": 1500,
-            "settlingTimeMs": 1000,
-            "dripWaitTimeMs": 500,
-            "inputDebounceMs": 200,
-            "outputDebounceMs": 200,
-            "gateSpeedPercent": 80,
-            "watchdogTimeoutMs": 5000,
-            "maxRetries": 3,
-            "relayInversion": False,
-            "autoRecovery": True,
-            "manualValveMaxOpenTimeMs": 10000,
-            "logLevel": "INFO",
-            "heartbeatIntervalMs": 1000,
-            "enableMqtt": False,
-            "mqttBrokerUrl": "localhost",
-            "autoCleanEnabled": False,
-            "autoCleanIntervalCount": 10,
-            "maxTemperatureThreshold": 60,
-            "voltageWarningLimit": 11.5,
-            "emergencyStopBehavior": "SAFE_HOME",
-            "washDurationMs": 30000,
-            "washValveIntervalMs": 2000
+        defaults = {
+            "config": {
+                "recipeId": "RECIPE-1",
+                "volumeMl": 250,
+                "targetCount": 9,
+                "fillTimeMs": 1500,
+                "settlingTimeMs": 1000,
+                "dripWaitTimeMs": 500,
+                "inputDebounceMs": 200,
+                "outputDebounceMs": 200,
+                "gateSpeedPercent": 80,
+                "watchdogTimeoutMs": 15000,
+                "maxRetries": 3,
+                "relayInversion": False,
+                "autoRecovery": True,
+                "manualValveMaxOpenTimeMs": 10000,
+                "logLevel": "INFO",
+                "heartbeatIntervalMs": 5000,
+                "enableMqtt": False,
+                "mqttBrokerUrl": "localhost",
+                "autoCleanEnabled": False,
+                "autoCleanIntervalCount": 10,
+                "maxTemperatureThreshold": 60,
+                "voltageWarningLimit": 11.5,
+                "emergencyStopBehavior": "SAFE_HOME",
+                "washDurationMs": 30000,
+                "washValveIntervalMs": 2000
+            },
+            "valves": [
+                {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 12, "name": "3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 13, "name": "4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 14, "name": "5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 15, "name": "6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 16, "name": "7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
+                {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"}
+            ],
+            "sensors": [
+                {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "NANO", "status": "ONLINE"},
+                {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "NANO", "status": "ONLINE"}
+            ],
+            "nanos": [
+                {"id": "NANO-1", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600},
+                {"id": "NANO-2", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600}
+            ],
+            "inputGate": {"id": "GATE-IN", "name": "Giriş Kapısı", "isOpen": False, "pin": "G1", "enabled": True, "position": 0},
+            "outputGate": {"id": "GATE-OUT", "name": "Çıkış Kapısı", "isOpen": False, "pin": "G2", "enabled": True, "position": 0},
+            "extraGates": []
         }
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("config", json.dumps(default_config)))
-
-        default_valves = [
-            {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 12, "name": "3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 13, "name": "4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 14, "name": "5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 15, "name": "6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 16, "name": "7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-            {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"}
-        ]
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("valves", json.dumps(default_valves)))
-
-        default_sensors = [
-            {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "RASPI", "status": "ONLINE"},
-            {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "RASPI", "status": "ONLINE"}
-        ]
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("sensors", json.dumps(default_sensors)))
-
-        default_nanos = [
-            {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 9600}
-        ]
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("nanos", json.dumps(default_nanos)))
-
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("inputGate", json.dumps({"isOpen": False, "pin": "18", "enabled": True, "position": 0})))
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("outputGate", json.dumps({"isOpen": False, "pin": "23", "enabled": True, "position": 0})))
-        cursor.execute("INSERT INTO system_state (key, value) VALUES (?, ?)", ("extraGates", json.dumps([])))
-
-        cursor.execute("INSERT INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        
+        for key, value in defaults.items():
+            cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+            
+        cursor.execute("INSERT OR REPLACE INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                        ("RECIPE-1", "Standart Dolum", 250, 9, 1500, 1000, 500, "9 şişe standart dolum reçetesi", True))
 
     def get_state(self, key):

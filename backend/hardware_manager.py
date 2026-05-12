@@ -74,6 +74,42 @@ class HardwareManager:
                     except Exception as e:
                         print(f"[Hardware] Yazma Hatası ({port}): {e}")
 
+    def apply_config(self, nanos, sensors):
+        """Arayüzden gelen tüm donanım yapılandırmasını anında uygular."""
+        self.sensor_config = sensors
+        
+        # 1. Nano Bağlantılarını Güncelle
+        active_ports = [n.get("port") for n in nanos if n.get("port")]
+        
+        # Artık kullanılmayan portları kapat
+        for port in list(self.serial_conns.keys()):
+            if port not in active_ports:
+                print(f"[Hardware] Port artık kullanımda değil, kapatılıyor: {port}")
+                try:
+                    self.serial_conns[port].close()
+                except: pass
+                del self.serial_conns[port]
+        
+        # Yeni veya değişen portlara bağlan
+        for n in nanos:
+            port = n.get("port")
+            baud = n.get("baudRate", 9600)
+            if port:
+                self.connect_to_port(port, baud)
+        
+        # 2. GPIO Sensörlerini Yeniden Başlat (Eğer Pi üzerindeyse)
+        self.setup_gpio(sensors=sensors)
+        print("[Hardware] Yeni yapılandırma uygulandı.")
+
+    def control_gate(self, gate_cmd_prefix, value):
+        """
+        Dinamik kilit kontrolü. 
+        gate_cmd_prefix: 'G1', 'G2' vb.
+        value: 1 (aç), 0 (kapat)
+        """
+        cmd = f"{gate_cmd_prefix}:{value}"
+        self.send_command(cmd)
+
     def update(self):
         """Tüm açık portları tarar ve gelen verileri işler."""
         for port, conn in list(self.serial_conns.items()):

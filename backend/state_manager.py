@@ -4,58 +4,34 @@ class StateManager:
     def __init__(self, db, hw):
         self.db = db
         self.hw = hw
+        
+        # Temel çalışma değerleri (Database'de tutulmaz, her açılışta sıfırlanır)
         self.data = {
             "mode": "BASLATMA",
             "autoState": "BEKLEMEDE",
             "inputCount": 0,
             "outputCount": 0,
-            "valves": self.db.get_state("valves") or [],
-            "nanos": self.db.get_state("nanos") or [
-                {"id": "NANO-1", "name": "Valf Kontrol", "port": "/dev/ttyUSB0", "status": "ONLINE", "pingMs": 10, "baudRate": 9600}
-            ],
-            "sensors": self.db.get_state("sensors") or [],
             "terminalLogs": ["Python Backend Hazır.", "Sistem başlatılıyor..."],
-            "inputGate": self.db.get_state("inputGate") or {"id": "GATE-IN", "name": "Giriş Kapısı", "isOpen": False, "position": 0, "enabled": True},
-            "outputGate": self.db.get_state("outputGate") or {"id": "GATE-OUT", "name": "Çıkış Kapısı", "isOpen": False, "position": 0, "enabled": True},
-            "extraGates": self.db.get_state("extraGates") or [],
-            "cycleHistory": [],
-            "activeAlerts": [
-                { "id": "ALR-STARTUP", "code": "SYS_ACTIVE", "severity": "WARNING", "message": "Python Backend Aktif", "suggestion": "Donanım bağlantılarını kontrol edin.", "timestamp": int(time.time() * 1000), "resolved": False }
-            ],
-            "config": self.db.get_state("config") or {
-                "recipeId": "REC-01",
-                "volumeMl": 40,
-                "targetCount": 9,
-                "fillTimeMs": 1500,
-                "settlingTimeMs": 800,
-                "dripWaitTimeMs": 400,
-                "inputDebounceMs": 35,
-                "outputDebounceMs": 40,
-                "gateSpeedPercent": 100,
-                "watchdogTimeoutMs": 15000,
-                "maxRetries": 3,
-                "relayInversion": False,
-                "autoRecovery": True,
-                "manualValveMaxOpenTimeMs": 5000,
-                "logLevel": "INFO",
-                "heartbeatIntervalMs": 5000,
-                "enableMqtt": False,
-                "mqttBrokerUrl": "mqtt://localhost:1883",
-                "autoCleanEnabled": False,
-                "autoCleanIntervalCount": 1000,
-                "maxTemperatureThreshold": 65,
-                "voltageWarningLimit": 22.5,
-                "emergencyStopBehavior": "FREEZE",
-                "washDurationMs": 60000,
-                "washValveIntervalMs": 5000
-            },
-            "recipes": self.db.get_recipes(),
             "serialPorts": [],
+            "cycleHistory": [],
+            "activeAlerts": [],
+            "activePrompt": None,
             "isWashingDone": False,
             "isWashingRequired": False,
-            "stopAfterCycleRequested": False,
-            "activePrompt": None
+            "stopAfterCycleRequested": False
         }
+        
+        # Diğer tüm konfigürasyonu Database'den yükle
+        self.reload_from_db()
+
+    def reload_from_db(self):
+        """Database'deki tüm yapılandırmayı state.data içine çeker."""
+        db_state = self.db.get_all_state()
+        self.data.update(db_state)
+        
+        # Reçeteleri ayrıca yükle
+        self.data["recipes"] = self.db.get_recipes()
+        self.log("Yapılandırma veritabanından yüklendi.")
 
     def set_mode(self, mode):
         self.data["mode"] = mode

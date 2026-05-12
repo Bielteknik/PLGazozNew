@@ -24,11 +24,8 @@ db = DatabaseManager()
 hw = HardwareManager()
 state = StateManager(db, hw)
 
-# Donanım başlat
-for n in state.data.get("nanos", []):
-    if n.get("port"):
-        hw.connect_to_port(n.get("port"), n.get("baudRate", 9600))
-hw.setup_gpio(sensors=state.data.get("sensors", []))
+# Donanım başlat (Database'deki en güncel yapılandırmayı uygula)
+hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
 
 # Arayüze güvenli veri gönderme (Thread-Safe)
 def safe_emit():
@@ -115,10 +112,12 @@ async def handle_action(sid, data):
         sensors.append(payload.get("sensor"))
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
+        hw.apply_config(state.data.get("nanos", []), sensors)
     elif action_type == 'REMOVE_SENSOR':
         sensors = [s for s in state.data.get("sensors", []) if s["id"] != payload.get("id")]
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
+        hw.apply_config(state.data.get("nanos", []), sensors)
     elif action_type == 'UPDATE_SENSOR':
         sensors = state.data.get("sensors", [])
         for s in sensors:
@@ -126,6 +125,7 @@ async def handle_action(sid, data):
                 s.update(payload.get("updates", {}))
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
+        hw.apply_config(state.data.get("nanos", []), sensors)
     elif action_type == 'TOGGLE_SENSOR_ENABLED':
         sensors = state.data.get("sensors", [])
         for s in sensors:
@@ -133,6 +133,7 @@ async def handle_action(sid, data):
                 s["enabled"] = not s.get("enabled", True)
         state.data["sensors"] = sensors
         db.save_state("sensors", sensors)
+        hw.apply_config(state.data.get("nanos", []), sensors)
 
     # --- Nano / Arduino ---
     elif action_type == 'ADD_HARDWARE':
@@ -140,27 +141,22 @@ async def handle_action(sid, data):
         nanos.append(payload.get("nano"))
         state.data["nanos"] = nanos
         db.save_state("nanos", nanos)
-    elif action_type == 'REMOVE_HARDWARE':
-        nanos = [n for n in state.data.get("nanos", []) if n["id"] != payload.get("id")]
-        state.data["nanos"] = nanos
-        db.save_state("nanos", nanos)
+        hw.apply_config(nanos, state.data.get("sensors", []))
     elif action_type == 'UPDATE_NANO_CONFIG':
         nanos = state.data.get("nanos", [])
         for n in nanos:
             if n["id"] == payload.get("id"):
                 n.update(payload.get("config", {}))
-                # Port atandıysa bağlanmayı dene
-                if "port" in payload.get("config", {}) or "baudRate" in payload.get("config", {}):
-                    port = n.get("port")
-                    baud = n.get("baudRate", 115200)
-                    if port:
-                        success = hw.connect_to_port(port, baud)
-                        n["status"] = "ONLINE" if success else "OFFLINE"
-                        print(f"[NANO] {port} bağlantı: {'ONLINE' if success else 'OFFLINE'}")
         state.data["nanos"] = nanos
         db.save_state("nanos", nanos)
+        hw.apply_config(nanos, state.data.get("sensors", []))
+    elif action_type == 'REMOVE_HARDWARE':
+        nanos = [n for n in state.data.get("nanos", []) if n["id"] != payload.get("id")]
+        state.data["nanos"] = nanos
+        db.save_state("nanos", nanos)
+        hw.apply_config(nanos, state.data.get("sensors", []))
     elif action_type == 'SEND_NANO_COMMAND':
-        hw.send_serial(f"{payload.get('cmd')}\n")
+        hw.send_command(payload.get('cmd'), target_port=payload.get('port'))
 
     # --- Kapılar ---
     elif action_type == 'UPDATE_SYSTEM_GATE':
