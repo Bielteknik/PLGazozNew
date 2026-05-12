@@ -45,17 +45,40 @@ class DatabaseManager:
                 )
             ''')
 
-            # Eski ID'leri yeni isimlendirmeye zorla (Migration)
-            cursor.execute("UPDATE nanos SET id = 'GatesNano', name = 'Kilit ve Sensörler' WHERE id = 'NANO-1'")
-            cursor.execute("UPDATE nanos SET id = 'ValvesNano', name = 'Valf Kontrol' WHERE id = 'NANO-2'")
-            cursor.execute("UPDATE sensors SET device = 'GatesNano' WHERE device = 'NANO'")
-            conn.commit()
-
-            # Temel veriler eksikse tohumla
+            # Tablo boşsa varsayılanları yükle
             cursor.execute("SELECT count(*) FROM system_state")
             if cursor.fetchone()[0] == 0:
                 print("[DB] İlk kurulum: Varsayılan veriler tohumlanıyor...")
                 self._seed_default_data(cursor)
+            else:
+                # Mevcut verideki eski ID'leri yeni isimlendirmeye zorla (Migration)
+                cursor.execute("SELECT key, value FROM system_state WHERE key IN ('nanos', 'sensors')")
+                rows = cursor.fetchall()
+                for row in rows:
+                    key = row['key']
+                    data = json.loads(row['value'])
+                    updated = False
+                    
+                    if key == 'nanos':
+                        for n in data:
+                            if n['id'] == 'NANO-1':
+                                n['id'] = 'GatesNano'
+                                n['name'] = 'Kilit ve Sensörler'
+                                updated = True
+                            elif n['id'] == 'NANO-2':
+                                n['id'] = 'ValvesNano'
+                                n['name'] = 'Valf Kontrol'
+                                updated = True
+                    elif key == 'sensors':
+                        for s in data:
+                            if s['device'] == 'NANO':
+                                s['device'] = 'GatesNano'
+                                updated = True
+                    
+                    if updated:
+                        cursor.execute("UPDATE system_state SET value = ? WHERE key = ?", (json.dumps(data), key))
+            
+            conn.commit()
                 
             conn.commit()
             print(f"[DB] Veritabanı bağlantısı başarılı.")

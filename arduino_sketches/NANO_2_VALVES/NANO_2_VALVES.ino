@@ -23,8 +23,11 @@ void loop() {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
     
-    if (cmd == "IDENTIFY") {
+    if (cmd == "IDENTIFY" || cmd == "STATUS") {
       Serial.print("ID:"); Serial.println(HARDWARE_ID);
+      if (cmd == "STATUS") {
+        Serial.print(HARDWARE_ID); Serial.println(":STAT:READY");
+      }
     }
     else if (cmd.startsWith("VALVE_CMD:")) {
       int idx = cmd.indexOf(':', 10);
