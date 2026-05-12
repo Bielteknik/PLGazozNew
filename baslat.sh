@@ -16,7 +16,10 @@ cd ..
 
 # 2. Frontend'i Başlat
 echo "[2/2] React Arayüzü başlatılıyor..."
-npm run dev &
+if [ ! -d "node_modules" ]; then
+    echo "UYARI: node_modules bulunamadı! 'npm install' komutunu çalıştırmanız gerekebilir."
+fi
+npx vite --port=3000 --host=0.0.0.0 &
 FRONTEND_PID=$!
 
 echo "------------------------------------------"
