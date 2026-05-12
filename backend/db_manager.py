@@ -113,6 +113,16 @@ class DatabaseManager:
         cursor.execute("INSERT OR REPLACE INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                        ("RECIPE-1", "Standart Dolum", 250, 9, 1500, 1000, 500, "9 şişe standart dolum reçetesi", True))
 
+    def get_all_state(self):
+        """Tüm system_state tablosunu bir sözlük olarak döner."""
+        state = {}
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT key, value FROM system_state")
+            for row in cursor.fetchall():
+                state[row['key']] = json.loads(row['value'])
+        return state
+
     def get_state(self, key):
         with self.get_connection() as conn:
             cursor = conn.cursor()
