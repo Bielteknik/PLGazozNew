@@ -160,7 +160,11 @@ class HardwareManager:
                             elif "ACK:" in payload:
                                 print(f"[Hardware] {device_id} Onay: {payload}")
                         elif line.startswith("ID:"):
-                            pass # Startup ID
+                            # El sıkışma dışı gelen ID mesajlarını da işle (Örn: Restart sonrası)
+                            new_id = line.replace("ID:", "")
+                            if new_id in ["GatesNano", "ValvesNano"]:
+                                self.port_to_id_map[port] = new_id
+                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
                 
             except Exception as e:
                 print(f"[Hardware] Okuma Hatası ({port}): {e}")

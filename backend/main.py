@@ -242,6 +242,27 @@ async def broadcast_loop():
                     is_online = hw.is_port_online(n.get("port", ""))
                 
                 n["status"] = "ONLINE" if is_online else "OFFLINE"
+                
+                # --- Otomatik Eşleştirme (Auto-Mapping) ---
+                if is_online:
+                    if n['id'] == 'ValvesNano':
+                        # Tüm valfleri ValvesNano'ya bağla
+                        for v in state.data.get("valves", []):
+                            if v.get("connectionId") != "ValvesNano":
+                                v["connectionId"] = "ValvesNano"
+                                print(f"[Auto-Map] Valf {v['id']} -> ValvesNano")
+                    
+                    elif n['id'] == 'GatesNano':
+                        # Tüm sensörleri ve sistem kilitlerini GatesNano'ya bağla
+                        for s in state.data.get("sensors", []):
+                            if s.get("device") != "GatesNano":
+                                s["device"] = "GatesNano"
+                                print(f"[Auto-Map] Sensör {s['id']} -> GatesNano")
+                        
+                        if state.data.get("inputGate", {}).get("nanoId") != "GatesNano":
+                            state.data["inputGate"]["nanoId"] = "GatesNano"
+                        if state.data.get("outputGate", {}).get("nanoId") != "GatesNano":
+                            state.data["outputGate"]["nanoId"] = "GatesNano"
         
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
