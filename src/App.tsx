@@ -44,6 +44,7 @@ export default function App() {
     addNano,
     removeNano,
     resetCounter,
+    testValvePulse,
     stopWashing,
     selectRecipe,
     updateRecipe,

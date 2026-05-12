@@ -104,6 +104,13 @@ class HardwareManager:
                     conn.write(encoded_cmd)
                 except Exception as e:
                     print(f"[Hardware] Yazma Hatası ({target_port}): {e}")
+                    # Kritik: Bağlantıyı kopar ki self-healing devreye girsin!
+                    try:
+                        conn.close()
+                        del self.serial_conns[target_port]
+                        if target_port in self.port_to_id_map:
+                            del self.port_to_id_map[target_port]
+                    except: pass
         else:
             # Broadcast to all
             for port, conn in list(self.serial_conns.items()):
@@ -112,6 +119,12 @@ class HardwareManager:
                         conn.write(encoded_cmd)
                     except Exception as e:
                         print(f"[Hardware] Yazma Hatası ({port}): {e}")
+                        try:
+                            conn.close()
+                            del self.serial_conns[port]
+                            if port in self.port_to_id_map:
+                                del self.port_to_id_map[port]
+                        except: pass
 
     def apply_config(self, nanos, sensors):
         """Arayüzden gelen tüm donanım yapılandırmasını anında uygular."""
