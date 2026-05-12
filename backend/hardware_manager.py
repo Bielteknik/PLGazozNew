@@ -156,8 +156,8 @@ class HardwareManager:
 
         if port:
             pin = "G1" if "IN" in gate_id or "G1" in gate_id else "G2"
-            # 600 adım ileri (1) = Aç, 600 adım geri (-600) = Kilitler
-            steps = 600 if int(position) == 1 else -600
+            # 400 adım ileri (1) = Aç, 400 adım geri (-400) = Kilitler
+            steps = 400 if int(position) == 1 else -400
             full_cmd = f"{pin}:{steps}"
             print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)

@@ -2,7 +2,7 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { SystemData } from '../../types/system';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Square, RefreshCcw, ShieldAlert, Cpu, AlertTriangle, Unlock, Shield, Target, RefreshCw, Lock, Droplet, History } from 'lucide-react';
+import { Play, Square, RefreshCcw, ShieldAlert, Cpu, AlertTriangle, Unlock, Shield, Target, RefreshCw, Lock, Droplet, History, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface DashboardProps {
