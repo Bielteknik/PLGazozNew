@@ -2,7 +2,7 @@
  * NANO-2: Valf Kontrolü (V3.0)
  * Kimlik: NANO-2
  */
-#define HARDWARE_ID "NANO-2"
+#define HARDWARE_ID "ValvesNano"
 
 const int valvePins[] = {2, 3, 4, 5, 6, 7, 8, 11, 12}; // 9 Valf
 const int numValves = 9;

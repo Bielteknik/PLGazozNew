@@ -4,7 +4,7 @@
  */
 #include <Servo.h>
 
-#define HARDWARE_ID "NANO-1"
+#define HARDWARE_ID "GatesNano"
 
 Servo g1, g2;
 const int inSensorPin = 17; // Örnek pin

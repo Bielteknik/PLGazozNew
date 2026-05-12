@@ -6,7 +6,7 @@ import os
 class HardwareManager:
     def __init__(self):
         self.serial_conns = {}  # {port: SerialInstance}
-        self.port_to_id_map = {} # {port: 'NANO-1'}
+        self.port_to_id_map = {} # {port: 'GatesNano' or 'ValvesNano'}
         self.on_input_detected = None
         self.on_output_detected = None
         self.sensor_config = []
@@ -133,7 +133,7 @@ class HardwareManager:
                         device_id = parts[0]
                         payload = ":".join(parts[1:])
                         
-                        if device_id in ["NANO-1", "NANO-2"]:
+                        if device_id in ["GatesNano", "ValvesNano"]:
                             if "P1:" in payload: self._handle_input(device_id)
                             elif "P2:" in payload: self._handle_output(device_id)
                             elif "ACK:" in payload:

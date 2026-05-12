@@ -95,12 +95,12 @@ class DatabaseManager:
                 {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"}
             ],
             "sensors": [
-                {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "NANO", "status": "ONLINE"},
-                {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "NANO", "status": "ONLINE"}
+                {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "GatesNano", "status": "ONLINE"},
+                {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "GatesNano", "status": "ONLINE"}
             ],
             "nanos": [
-                {"id": "NANO-1", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600},
-                {"id": "NANO-2", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600}
+                {"id": "GatesNano", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600},
+                {"id": "ValvesNano", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600}
             ],
             "inputGate": {"id": "GATE-IN", "name": "Giriş Kapısı", "isOpen": False, "pin": "G1", "enabled": True, "position": 0},
             "outputGate": {"id": "GATE-OUT", "name": "Çıkış Kapısı", "isOpen": False, "pin": "G2", "enabled": True, "position": 0},
