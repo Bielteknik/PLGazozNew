@@ -107,6 +107,28 @@ async def handle_action(sid, data):
         state.data["valves"] = valves
         db.save_state("valves", valves)
 
+    # --- Sayaç Yönetimi ---
+    elif action_type == 'MANAGE_COUNTER':
+        target = payload.get('target') # 'input' or 'output'
+        op = payload.get('op') # 'inc', 'dec', 'reset'
+        
+        if target == 'input':
+            if op == 'inc': state.data["inputCount"] += 1
+            elif op == 'dec': state.data["inputCount"] = max(0, state.data["inputCount"] - 1)
+            elif op == 'reset': state.data["inputCount"] = 0
+        else:
+            if op == 'inc': state.data["outputCount"] += 1
+            elif op == 'dec': state.data["outputCount"] = max(0, state.data["outputCount"] - 1)
+            elif op == 'reset': state.data["outputCount"] = 0
+        
+        print(f"[Counter] {target} {op} yapıldı. Yeni Değerler: {state.data['inputCount']}/{state.data['outputCount']}")
+
+    # --- Kilit Manuel Kontrol ---
+    elif action_type == 'OPERATE_GATE':
+        gate_id = payload.get('id')
+        pos = payload.get('position') # 1=Aç/İleri, 0=Kapat/Geri
+        hw.control_gate(gate_id, pos)
+
     # --- Sensör ---
     elif action_type == 'ADD_SENSOR':
         sensors = state.data.get("sensors", [])
