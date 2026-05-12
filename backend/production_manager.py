@@ -13,11 +13,16 @@ class ProductionManager:
     async def run_loop(self):
         """Ana üretim döngüsü."""
         while True:
-            if self.state.data["mode"] == "OTOMATİK":
-                if not self.is_running:
-                    await self.start_cycle()
-            else:
-                self.is_running = False
+            try:
+                # Mod verisi yoksa varsayılan MANUEL yap
+                mode = self.state.data.get("mode", "MANUEL")
+                if mode == "OTOMATİK":
+                    if not self.is_running:
+                        await self.start_cycle()
+                else:
+                    self.is_running = False
+            except Exception as e:
+                print(f"[Production] Döngü Hatası: {e}")
             
             await asyncio.sleep(0.5)
 

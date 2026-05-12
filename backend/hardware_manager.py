@@ -13,17 +13,11 @@ class HardwareManager:
         self.polling_active = False
         
     def get_available_ports(self):
-        """Pi 5 ve diğer sistemler için kapsamlı port tarama."""
+        """Sadece ttyUSB ve ttyACM ile başlayan geçerli seri portları listeler."""
         ports = [p.device for p in serial.tools.list_ports.comports()]
-        
-        # Pi 5 Manuel Kontrol (Eğer liste boşsa veya USB portları eksikse)
-        for i in range(8):
-            for prefix in ["/dev/ttyUSB", "/dev/ttyACM", "/dev/ttyAMA"]:
-                p = f"{prefix}{i}"
-                if os.path.exists(p) and p not in ports:
-                    ports.append(p)
-                    
-        return sorted(list(set(ports)))
+        # Sadece USB tabanlı olanları filtrele
+        filtered = [p for p in ports if "ttyUSB" in p or "ttyACM" in p]
+        return sorted(filtered)
 
     def connect_to_port(self, port, baudrate=9600):
         """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
@@ -77,6 +71,23 @@ class HardwareManager:
         """Portun bağlı ve açık olup olmadığını kontrol eder."""
         conn = self.serial_conns.get(port)
         return conn is not None and conn.is_open
+
+    def control_valve(self, pin, state):
+        """ValvesNano üzerinden vana kontrolü yapar."""
+        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+        if port:
+            state_str = "ON" if state else "OFF"
+            self.send_command(f"VALVE_CMD:{pin}:{state_str}", target_port=port)
+            return True
+        return False
+
+    def control_gate(self, pin, position):
+        """GatesNano üzerinden kilit motoru kontrolü yapar."""
+        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
+        if port:
+            self.send_command(f"{pin}:{position}", target_port=port)
+            return True
+        return False
 
     def send_command(self, cmd, target_port=None):
         """
