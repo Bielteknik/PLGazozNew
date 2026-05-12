@@ -25,7 +25,9 @@ hw = HardwareManager()
 state = StateManager(db, hw)
 
 # Donanım başlat
-hw.connect_serial()
+for n in state.data.get("nanos", []):
+    if n.get("port"):
+        hw.connect_to_port(n.get("port"), n.get("baudRate", 9600))
 hw.setup_gpio(sensors=state.data.get("sensors", []))
 
 # Arayüze güvenli veri gönderme (Thread-Safe)
@@ -42,18 +44,8 @@ hw.on_output_detected = lambda: safe_emit() or state.increment_output()
 
 # --- Yardımcı ---
 def refresh_ports():
-    """Pi 5 için: pyserial + manuel /dev kontrol"""
-    ports = [p.device for p in __import__('serial').tools.list_ports.comports()]
-    for i in range(4):
-        for prefix in ['/dev/ttyUSB', '/dev/ttyACM']:
-            p = f"{prefix}{i}"
-            if os.path.exists(p) and p not in ports:
-                ports.append(p)
-    # Şu an nano'larda tanımlı portları da ekle
-    for n in state.data.get("nanos", []):
-        if n.get("port") and n.get("port") not in ports:
-            ports.append(n.get("port"))
-    return sorted(set(ports))
+    """HardwareManager üzerinden güncel portları al."""
+    return hw.get_available_ports()
 
 # --- Socket Olayları ---
 @sio.event
@@ -217,8 +209,7 @@ async def broadcast_loop():
         # Nano bağlantı durumlarını kontrol et
         for n in state.data.get("nanos", []):
             if n.get("port"):
-                is_connected = hw.serial_conn and hw.serial_conn.is_open and hw.serial_conn.port == n.get("port")
-                n["status"] = "ONLINE" if is_connected else "OFFLINE"
+                n["status"] = "ONLINE" if hw.is_port_online(n.get("port")) else "OFFLINE"
         
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)

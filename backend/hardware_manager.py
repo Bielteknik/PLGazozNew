@@ -5,91 +5,105 @@ import os
 
 class HardwareManager:
     def __init__(self):
-        self.serial_conn = None
+        self.serial_conns = {}  # {port: SerialInstance}
         self.on_input_detected = None
         self.on_output_detected = None
-        self.sensors = {}
+        self.sensor_config = []
+        self.polling_active = False
         
     def get_available_ports(self):
+        """Pi 5 ve diğer sistemler için kapsamlı port tarama."""
         ports = [p.device for p in serial.tools.list_ports.comports()]
         
         # Pi 5 Manuel Kontrol (Eğer liste boşsa veya USB portları eksikse)
-        import os
-        for i in range(4):
-            usb_p = f"/dev/ttyUSB{i}"
-            acm_p = f"/dev/ttyACM{i}"
-            if os.path.exists(usb_p) and usb_p not in ports:
-                ports.append(usb_p)
-            if os.path.exists(acm_p) and acm_p not in ports:
-                ports.append(acm_p)
-                
-        return list(set(ports))
-
-    def connect_serial(self, port='/dev/ttyUSB0', baudrate=9600):
-        try:
-            self.serial_conn = serial.Serial(port, baudrate, timeout=1)
-            print(f"[Serial] Bağlandı: {port}")
-            return True
-        except Exception as e:
-            print(f"[Serial] Hata ({port}): {e}")
-            return False
+        for i in range(8):
+            for prefix in ["/dev/ttyUSB", "/dev/ttyACM", "/dev/ttyAMA"]:
+                p = f"{prefix}{i}"
+                if os.path.exists(p) and p not in ports:
+                    ports.append(p)
+                    
+        return sorted(list(set(ports)))
 
     def connect_to_port(self, port, baudrate=9600):
         """Belirtilen porta bağlanmayı dene. Başarılıysa True döndür."""
         try:
-            # Mevcut bağlantıyı kapat
-            if self.serial_conn and self.serial_conn.is_open:
-                self.serial_conn.close()
-            self.serial_conn = serial.Serial(port, baudrate, timeout=1)
-            print(f"[Serial] Yeni bağlantı: {port}@{baudrate}")
+            # Eğer zaten bağlıysa ve açıksa, aynı ayarlar mı kontrol et (isteğe bağlı)
+            if port in self.serial_conns:
+                if self.serial_conns[port].is_open:
+                    if self.serial_conns[port].baudrate == baudrate:
+                        return True # Zaten doğru bağlı
+                    else:
+                        self.serial_conns[port].close()
+            
+            new_conn = serial.Serial(port, baudrate, timeout=0.1)
+            self.serial_conns[port] = new_conn
+            print(f"[Hardware] Bağlandı: {port} @ {baudrate}")
             return True
         except Exception as e:
-            print(f"[Serial] Bağlantı başarısız ({port}): {e}")
-            self.serial_conn = None
+            print(f"[Hardware] Bağlantı HATASI ({port}): {e}")
+            if port in self.serial_conns:
+                del self.serial_conns[port]
             return False
 
-    def send_command(self, cmd):
-        if self.serial_conn and self.serial_conn.is_open:
-            try:
-                full_cmd = f"{cmd}\n" if not cmd.endswith('\n') else cmd
-                self.serial_conn.write(full_cmd.encode())
-            except Exception as e:
-                print(f"[Serial] Yazma Hatası: {e}")
+    def is_port_online(self, port):
+        """Portun bağlı ve açık olup olmadığını kontrol eder."""
+        conn = self.serial_conns.get(port)
+        return conn is not None and conn.is_open
+
+    def send_command(self, cmd, target_port=None):
+        """
+        Komutu belirtilen porta veya tüm açık portlara gönderir.
+        target_port None ise tüm portlara broadcast yapar.
+        """
+        full_cmd = f"{cmd}\n" if not cmd.endswith('\n') else cmd
+        encoded_cmd = full_cmd.encode()
+
+        if target_port:
+            conn = self.serial_conns.get(target_port)
+            if conn and conn.is_open:
+                try:
+                    conn.write(encoded_cmd)
+                except Exception as e:
+                    print(f"[Hardware] Yazma Hatası ({target_port}): {e}")
+        else:
+            # Broadcast to all
+            for port, conn in list(self.serial_conns.items()):
+                if conn.is_open:
+                    try:
+                        conn.write(encoded_cmd)
+                    except Exception as e:
+                        print(f"[Hardware] Yazma Hatası ({port}): {e}")
 
     def update(self):
-        """Serial'den gelen verileri oku ve işle. Periyodik çağrılmalı."""
-        if self.serial_conn and self.serial_conn.is_open and self.serial_conn.in_waiting > 0:
-            try:
-                line = self.serial_conn.readline().decode().strip()
-                if line == "SENS:IN":
-                    print("[Arduino] Giriş Sensörü Tetiklendi")
-                    self._handle_input()
-                elif line == "SENS:OUT":
-                    print("[Arduino] Çıkış Sensörü Tetiklendi")
-                    self._handle_output()
-                elif line.startswith("ACK:"):
-                    print(f"[Arduino] Geri Bildirim: {line}")
-            except Exception as e:
-                print(f"[Serial] Okuma Hatası: {e}")
+        """Tüm açık portları tarar ve gelen verileri işler."""
+        for port, conn in list(self.serial_conns.items()):
+            if conn.is_open and conn.in_waiting > 0:
+                try:
+                    line = conn.readline().decode('utf-8', errors='ignore').strip()
+                    if not line: continue
+                    
+                    if line == "SENS:IN":
+                        self._handle_input("NANO")
+                    elif line == "SENS:OUT":
+                        self._handle_output("NANO")
+                    elif line.startswith("ACK:"):
+                        print(f"[Hardware] {port} Bildirimi: {line}")
+                except Exception as e:
+                    print(f"[Hardware] Okuma Hatası ({port}): {e}")
 
     def control_valve(self, pin, state):
-        """Standardized method used by StateManager"""
-        # Arduino sketch VALVE_CMD:pin:ON/OFF formatını bekliyor
+        """Vana kontrolü (Broadcast)."""
         cmd = f"VALVE_CMD:{pin}:{'ON' if state else 'OFF'}"
         self.send_command(cmd)
 
     def toggle_valve(self, pin, state):
-        """Alias for control_valve"""
         self.control_valve(pin, state)
 
     def all_off(self):
         self.send_command("VALVE_CMD:ALL:OFF")
 
     def setup_gpio(self, sensors=None, input_pin=17, output_pin=27):
-        """
-        Pi 5 için Polling (Sürekli Kontrol) yöntemi.
-        Sensör config'i saklanır ve gelen sinyalin kaynağı doğrulanır.
-        """
+        """Pi 5 için Hibrit Sensör Kontrolü (lgpio polling)."""
         self.sensor_config = sensors or []
         try:
             import lgpio
@@ -118,48 +132,35 @@ class HardwareManager:
             def poll_loop():
                 while self.polling_active:
                     try:
-                        # Giriş Sensörü Oku (Sadece RASPI ayarlıysa işle)
+                        # Giriş Sensörü
                         in_val = lgpio.gpio_read(self.gpio_h, in_pin)
                         if in_val != self.last_in_state:
                             if in_val == 0: self._handle_input("RASPI")
                             self.last_in_state = in_val
 
-                        # Çıkış Sensörü Oku (Sadece RASPI ayarlıysa işle)
+                        # Çıkış Sensörü
                         out_val = lgpio.gpio_read(self.gpio_h, out_pin)
                         if out_val != self.last_out_state:
                             if out_val == 0: self._handle_output("RASPI")
                             self.last_out_state = out_val
 
-                        time.sleep(0.1)
+                        time.sleep(0.05) # Hızlandırıldı
                     except: break
 
             self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
             self.poll_thread.start()
-            print(f"[GPIO] İzleme başladı (Hibrit Mod)")
+            print(f"[GPIO] İzleme başladı (Hibrit Mod - Pi 5)")
 
         except Exception as e:
-            print(f"[GPIO] Kurulum Hatası: {e}")
-
-    def update(self):
-        """Serial'den gelen verileri oku ve işle."""
-        if self.serial_conn and self.serial_conn.is_open and self.serial_conn.in_waiting > 0:
-            try:
-                line = self.serial_conn.readline().decode().strip()
-                if line == "SENS:IN":
-                    self._handle_input("NANO")
-                elif line == "SENS:OUT":
-                    self._handle_output("NANO")
-            except: pass
+            print(f"[GPIO] Kurulum Hatası (Muhtemelen Pi değil): {e}")
 
     def _handle_input(self, source):
-        # Arayüzden bu sensör için hangi cihaz seçilmiş?
         for s in self.sensor_config:
             if s.get("type") == "INPUT" and s.get("device") == source and s.get("enabled"):
                 print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")
                 if self.on_input_detected: self.on_input_detected()
 
     def _handle_output(self, source):
-        # Arayüzden bu sensör için hangi cihaz seçilmiş?
         for s in self.sensor_config:
             if s.get("type") == "OUTPUT" and s.get("device") == source and s.get("enabled"):
                 print(f">>> ÇIKIŞ SENSÖRÜ ({source}) TETİKLENDİ")
@@ -167,8 +168,12 @@ class HardwareManager:
 
     def cleanup(self):
         self.polling_active = False
-        if self.serial_conn:
-            self.serial_conn.close()
+        for port, conn in self.serial_conns.items():
+            try:
+                conn.close()
+            except: pass
+        self.serial_conns.clear()
+        
         try:
             import lgpio
             if hasattr(self, 'gpio_h'):
