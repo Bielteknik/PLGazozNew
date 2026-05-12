@@ -30,19 +30,15 @@ class ProductionManager:
             await asyncio.sleep(0.5)
 
     async def run_washing_cycle(self):
-        """Valfleri periyodik olarak açıp kapatarak temizlik yapar."""
-        self.state.log("YIKAMA: Temizlik döngüsü aktif (Pulsing).")
+        """Arduino'ya yıkama komutu gönderir ve bitmesini bekler."""
+        self.state.log("YIKAMA: Arduino washing modu başlatıldı.")
+        self.hw.send_command("WASH_START")
+        
         while self.state.data.get("mode") == "YIKAMA":
-            # Tüm aktif valfleri aç
-            for v in self.state.data.get("valves", []):
-                if v.get("enabled"):
-                    self.hw.control_valve(v["id"], True)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
             
-            # Tüm aktif valfleri kapat
-            for v in self.state.data.get("valves", []):
-                self.hw.control_valve(v["id"], False)
-            await asyncio.sleep(0.5)
+        self.hw.send_command("WASH_STOP")
+        self.state.log("YIKAMA: Durduruldu.")
 
     async def run_flush_cycle(self):
         """Tüm valfleri sürekli açık tutarak tahliye yapar."""

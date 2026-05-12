@@ -236,11 +236,18 @@ class HardwareManager:
         return False
 
     async def pulse_valve(self, valve_id, duration_ms):
-        """Bir vanayı belirli bir süre (ms) açıp kapatır."""
-        print(f"[Hardware] >>> TEST PULSE: Valf {valve_id}, Süre: {duration_ms}ms")
-        self.control_valve(valve_id, True)
-        await asyncio.sleep(duration_ms / 1000.0)
-        self.control_valve(valve_id, False)
+        """Bir vanayı belirli bir süre (ms) açıp kapatır. Takılmaya karşı zırhlıdır."""
+        print(f"[Hardware] >>> TEST PULSE BAŞLADI: Valf {valve_id}, Süre: {duration_ms}ms")
+        try:
+            self.control_valve(valve_id, True)
+            await asyncio.sleep(duration_ms / 1000.0)
+        finally:
+            # Ne olursa olsun kapatmayı dene (Bağlantı kopsa bile self-healing ile kapatacak)
+            print(f"[Hardware] >>> TEST PULSE BİTİŞ: Valf {valve_id} kapatılıyor.")
+            success = self.control_valve(valve_id, False)
+            if not success:
+                print(f"[Hardware] UYARI: Valf {valve_id} kapatılamadı! ALL_OFF deneniyor.")
+                self.all_off()
 
     def toggle_valve(self, pin, state):
         self.control_valve(pin, state)
