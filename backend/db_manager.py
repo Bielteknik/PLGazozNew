@@ -215,3 +215,40 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM cycle_history ORDER BY id DESC LIMIT ?", (limit,))
             return [dict(row) for row in cursor.fetchall()]
+
+    def reset_hardware_links(self):
+        """Tüm donanım eşleşmelerini ve nano listesini sıfırlar."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # Nanoları sil
+            cursor.execute("UPDATE system_state SET value = '[]' WHERE key = 'nanos'")
+            
+            # Valf eşleşmelerini temizle
+            cursor.execute("SELECT value FROM system_state WHERE key = 'valves'")
+            row = cursor.fetchone()
+            if row:
+                valves = json.loads(row[0])
+                for v in valves: v['connectionId'] = None
+                cursor.execute("UPDATE system_state SET value = ? WHERE key = 'valves'", (json.dumps(valves),))
+            
+            # Sensörleri temizle
+            cursor.execute("SELECT value FROM system_state WHERE key = 'sensors'")
+            row = cursor.fetchone()
+            if row:
+                sensors = json.loads(row[0])
+                for s in sensors: 
+                    s['device'] = None
+                    s['type'] = 'ARDUINO' # Varsayılan olarak Nano moduna al
+                cursor.execute("UPDATE system_state SET value = ? WHERE key = 'sensors'", (json.dumps(sensors),))
+            
+            # Kilitleri temizle
+            for key in ['inputGate', 'outputGate']:
+                cursor.execute(f"SELECT value FROM system_state WHERE key = '{key}'")
+                row = cursor.fetchone()
+                if row:
+                    gate = json.loads(row[0])
+                    gate['nanoId'] = None
+                    cursor.execute(f"UPDATE system_state SET value = ? WHERE key = '{key}'", (json.dumps(gate),))
+            
+            conn.commit()
+            print("[DB] Donanım eşleşmeleri sıfırlandı.")
