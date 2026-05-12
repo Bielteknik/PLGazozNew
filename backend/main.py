@@ -36,9 +36,8 @@ def safe_emit():
             lambda: asyncio.create_task(sio.emit('STATE_UPDATE', state.data))
         )
 
-# GPIO callback'lerini bağla
-hw.on_input_detected = lambda: safe_emit() or state.increment_input()
-hw.on_output_detected = lambda: safe_emit() or state.increment_output()
+# Sensör callback'lerini bağla (Arduino'dan gelen veriler için)
+hw.on_input_detected = lambda d_id, s_type: prod.handle_sensor(d_id, s_type)
 
 
 # --- Yardımcı ---
