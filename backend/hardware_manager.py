@@ -141,14 +141,25 @@ class HardwareManager:
         self.setup_gpio(sensors=sensors)
         print("[Hardware] Yeni yapılandırma uygulandı.")
 
-    def control_gate(self, gate_cmd_prefix, value):
+    def control_gate(self, gate_id, position):
         """
         Dinamik kilit kontrolü. 
-        gate_cmd_prefix: 'G1', 'G2' vb.
-        value: 1 (aç), 0 (kapat)
+        gate_id: 'G-IN', 'G-OUT' veya 'G1', 'G2'
+        position: 1 (aç), 0 (kapat)
         """
-        cmd = f"{gate_cmd_prefix}:{value}"
-        self.send_command(cmd)
+        # Eğer gate_id bir konfigürasyon ID'si ise pini (G1/G2) bul
+        pin = gate_id
+        if gate_id == "G-IN": pin = "G1"
+        elif gate_id == "G-OUT": pin = "G2"
+        
+        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
+        if port:
+            self.send_command(f"{pin}:{position}", target_port=port)
+            print(f"[Hardware] Gate {gate_id} ({pin}) -> {position}")
+            return True
+        else:
+            print(f"[Hardware] HATA: GatesNano bağlı değil! ({gate_id} gönderilemedi)")
+        return False
 
     def update(self):
         """Tüm açık portları tarar ve ID önekli verileri işler."""
