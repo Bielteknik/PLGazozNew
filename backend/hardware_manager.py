@@ -237,10 +237,15 @@ class HardwareManager:
 
     async def pulse_valve(self, valve_id, duration_ms):
         """Bir vanayı belirli bir süre (ms) açıp kapatır. Takılmaya karşı zırhlıdır."""
-        print(f"[Hardware] >>> TEST PULSE BAŞLADI: Valf {valve_id}, Süre: {duration_ms}ms")
         try:
+            # Tip dönüşümü: Arayüzden string gelme ihtimaline karşı sayıya çevir
+            duration = float(duration_ms)
+            print(f"[Hardware] >>> TEST PULSE BAŞLADI: Valf {valve_id}, Süre: {duration}ms")
+            
             self.control_valve(valve_id, True)
-            await asyncio.sleep(duration_ms / 1000.0)
+            await asyncio.sleep(duration / 1000.0)
+        except Exception as e:
+            print(f"[Hardware] Pulse Hatası: {e}")
         finally:
             # Ne olursa olsun kapatmayı dene (Bağlantı kopsa bile self-healing ile kapatacak)
             print(f"[Hardware] >>> TEST PULSE BİTİŞ: Valf {valve_id} kapatılıyor.")
