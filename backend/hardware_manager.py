@@ -143,23 +143,25 @@ class HardwareManager:
 
     def control_gate(self, gate_id, position):
         """
-        Dinamik kilit kontrolü. 
-        gate_id: 'G-IN', 'G-OUT' veya 'G1', 'G2'
-        position: 1 (aç), 0 (kapat)
+        Dinamik kilit kontrolü. Sadece GatesNano kimlikli cihaza gider.
         """
-        # Eğer gate_id bir konfigürasyon ID'si ise pini (G1/G2) bul
-        pin = gate_id
-        if gate_id == "G-IN": pin = "G1"
-        elif gate_id == "G-OUT": pin = "G2"
-        
+        # 1. Portu bul
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
+        
+        # 2. Eğer port bulunamadıysa bir kez daha aramayı dene (Hızlı tarama)
+        if not port:
+            print("[Hardware] GatesNano portu hafızada yok, yeniden aranıyor...")
+            if self.find_and_connect("GatesNano"):
+                port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
+
         if port:
+            pin = "G1" if "IN" in gate_id or "G1" in gate_id else "G2"
             full_cmd = f"{pin}:{position}"
-            print(f"[Hardware] KOMUT GÖNDERİLİYOR -> Port: {port}, Komut: {full_cmd}")
+            print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)
             return True
         else:
-            print(f"[Hardware] HATA: GatesNano bağlı değil! (Port haritası: {self.port_to_id_map})")
+            print(f"[Hardware] KRİTİK HATA: GatesNano sistemde bulunamadı!")
         return False
 
     def update(self):
@@ -192,9 +194,9 @@ class HardwareManager:
                                 print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
                 
             except Exception as e:
-                print(f"[Hardware] Okuma Hatası ({port}): {e}")
-                if port in self.serial_conns:
-                    del self.serial_conns[port]
+                # Bağlantıyı hemen silme, sadece hatayı logla
+                if "outputCount" not in str(e): # Bilinen sayaç hatasını gizle
+                    print(f"[Hardware] Okuma Uyarısı ({port}): {e}")
 
     def control_valve(self, pin, state):
         """Vana kontrolü (Broadcast)."""
