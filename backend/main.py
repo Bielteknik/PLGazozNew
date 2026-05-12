@@ -293,7 +293,7 @@ async def broadcast_loop():
                             db.save_state("outputGate", state.data["outputGate"])
         
         # --- Durum Temizliği (Frontend Çökme Koruması) ---
-        for key in ["nanos", "valves", "sensors", "recipes"]:
+        for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts"]:
             if key not in state.data or state.data[key] is None:
                 state.data[key] = []
         
