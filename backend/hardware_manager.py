@@ -52,6 +52,27 @@ class HardwareManager:
             print(f"[Hardware] Bağlantı Hatası ({port}): {e}")
             return False
 
+    def find_and_connect(self, target_id):
+        """Tüm portları tarayarak hedef ID'ye sahip cihazı bulur ve bağlar."""
+        available = self.get_available_ports()
+        for port in available:
+            # Zaten başka bir ID ile bağlı olan portları atla
+            if port in self.serial_conns:
+                if self.port_to_id_map.get(port) == target_id: return True
+                continue
+                
+            print(f"[Hardware] {target_id} aranıyor: {port}...")
+            if self.connect_to_port(port):
+                if self.port_to_id_map.get(port) == target_id:
+                    print(f"[Hardware] {target_id} BULUNDU: {port}")
+                    return True
+                else:
+                    # Yanlış cihaz, kapat
+                    self.serial_conns[port].close()
+                    del self.serial_conns[port]
+                    if port in self.port_to_id_map: del self.port_to_id_map[port]
+        return False
+
     def is_port_online(self, port):
         """Portun bağlı ve açık olup olmadığını kontrol eder."""
         conn = self.serial_conns.get(port)

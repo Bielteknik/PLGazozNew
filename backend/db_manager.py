@@ -45,6 +45,12 @@ class DatabaseManager:
                 )
             ''')
 
+            # Eski ID'leri yeni isimlendirmeye zorla (Migration)
+            cursor.execute("UPDATE nanos SET id = 'GatesNano', name = 'Kilit ve Sensörler' WHERE id = 'NANO-1'")
+            cursor.execute("UPDATE nanos SET id = 'ValvesNano', name = 'Valf Kontrol' WHERE id = 'NANO-2'")
+            cursor.execute("UPDATE sensors SET device = 'GatesNano' WHERE device = 'NANO'")
+            conn.commit()
+
             # Temel veriler eksikse tohumla
             cursor.execute("SELECT count(*) FROM system_state")
             if cursor.fetchone()[0] == 0:

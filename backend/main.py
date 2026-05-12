@@ -158,7 +158,17 @@ async def handle_action(sid, data):
         db.save_state("nanos", nanos)
         hw.apply_config(nanos, state.data.get("sensors", []))
     elif action_type == 'SEND_NANO_COMMAND':
-        hw.send_command(payload.get('cmd'), target_port=payload.get('port'))
+        target_id = payload.get('nanoId')
+        target_port = payload.get('port')
+        
+        # Eğer nanoId verildiyse portu bul
+        if target_id and not target_port:
+            for p, d_id in hw.port_to_id_map.items():
+                if d_id == target_id:
+                    target_port = p
+                    break
+        
+        hw.send_command(payload.get('cmd'), target_port=target_port)
 
     # --- Kapılar ---
     elif action_type == 'UPDATE_SYSTEM_GATE':
@@ -196,6 +206,22 @@ async def handle_action(sid, data):
 
     await sio.emit('STATE_UPDATE', state.data)
 
+@sio.on('TERMINAL_INPUT')
+async def handle_terminal_input(sid, data):
+    nano_id = data.get('nanoId')
+    cmd = data.get('data')
+    
+    target_port = None
+    # ID bazlı portu bul
+    for p, d_id in hw.port_to_id_map.items():
+        if d_id == nano_id:
+            target_port = p
+            break
+            
+    if target_port:
+        hw.send_command(cmd, target_port=target_port)
+        print(f"[TERMINAL] -> {nano_id}: {cmd}")
+
 # --- Arka Plan Döngüsü ---
 async def broadcast_loop():
     while True:
@@ -210,9 +236,10 @@ async def broadcast_loop():
             if port:
                 is_online = hw.is_port_online(port)
                 if not is_online:
-                    # Kopmuşsa tekrar bağlanmayı dene
-                    hw.connect_to_port(port, n.get("baudRate", 9600))
-                    is_online = hw.is_port_online(port)
+                    # Otomatik keşfet ve bağlan
+                    print(f"[Auto-Discovery] {n['id']} koptu, taranıyor...")
+                    hw.find_and_connect(n['id'])
+                    is_online = hw.is_port_online(n.get("port", ""))
                 
                 n["status"] = "ONLINE" if is_online else "OFFLINE"
         
