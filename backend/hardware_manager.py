@@ -26,24 +26,30 @@ class HardwareManager:
         return sorted(list(set(ports)))
 
     def connect_to_port(self, port, baudrate=9600):
-        """Belirtilen porta bağlanmayı dene. Başarılıysa True döndür."""
+        """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
         try:
-            # Eğer zaten bağlıysa ve açıksa, aynı ayarlar mı kontrol et (isteğe bağlı)
             if port in self.serial_conns:
-                if self.serial_conns[port].is_open:
-                    if self.serial_conns[port].baudrate == baudrate:
-                        return True # Zaten doğru bağlı
-                    else:
-                        self.serial_conns[port].close()
+                if self.serial_conns[port].is_open: return True
             
-            new_conn = serial.Serial(port, baudrate, timeout=0.1)
-            self.serial_conns[port] = new_conn
-            print(f"[Hardware] Bağlandı: {port} @ {baudrate}")
-            return True
+            conn = serial.Serial(port, baudrate, timeout=1.0)
+            time.sleep(2) # Arduino'nun resetlenmesini bekle
+            
+            # El Sıkışma (Handshake)
+            conn.write(b"IDENTIFY\n")
+            response = conn.readline().decode('utf-8', errors='ignore').strip()
+            
+            if response.startswith("ID:"):
+                device_id = response.replace("ID:", "")
+                self.serial_conns[port] = conn
+                self.port_to_id_map[port] = device_id
+                print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
+                return True
+            else:
+                print(f"[Hardware] Handshake BAŞARISIZ ({port}): Kimlik alınamadı.")
+                conn.close()
+                return False
         except Exception as e:
-            print(f"[Hardware] Bağlantı HATASI ({port}): {e}")
-            if port in self.serial_conns:
-                del self.serial_conns[port]
+            print(f"[Hardware] Bağlantı Hatası ({port}): {e}")
             return False
 
     def is_port_online(self, port):
@@ -113,23 +119,32 @@ class HardwareManager:
         self.send_command(cmd)
 
     def update(self):
-        """Tüm açık portları tarar ve gelen verileri işler."""
+        """Tüm açık portları tarar ve ID önekli verileri işler."""
         for port, conn in list(self.serial_conns.items()):
-            if conn.is_open and conn.in_waiting > 0:
-                try:
+            try:
+                if not conn.is_open: continue
+                if conn.in_waiting > 0:
                     line = conn.readline().decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    device_id = self.port_to_id_map.get(port, "NANO")
-                    
-                    if line == "SENS:IN" or line.startswith("P1:"):
-                        self._handle_input(device_id)
-                    elif line == "SENS:OUT" or line.startswith("P2:"):
-                        self._handle_output(device_id)
-                    elif line.startswith("ACK:"):
-                        print(f"[Hardware] {device_id} ({port}) Bildirimi: {line}")
-                except Exception as e:
-                    print(f"[Hardware] Okuma Hatası ({port}): {e}")
+                    # ID formatı kontrolü: "NANO-1:P1:17"
+                    if ":" in line:
+                        parts = line.split(":")
+                        device_id = parts[0]
+                        payload = ":".join(parts[1:])
+                        
+                        if device_id in ["NANO-1", "NANO-2"]:
+                            if "P1:" in payload: self._handle_input(device_id)
+                            elif "P2:" in payload: self._handle_output(device_id)
+                            elif "ACK:" in payload:
+                                print(f"[Hardware] {device_id} Onay: {payload}")
+                        elif line.startswith("ID:"):
+                            pass # Startup ID
+                
+            except Exception as e:
+                print(f"[Hardware] Okuma Hatası ({port}): {e}")
+                if port in self.serial_conns:
+                    del self.serial_conns[port]
 
     def control_valve(self, pin, state):
         """Vana kontrolü (Broadcast)."""

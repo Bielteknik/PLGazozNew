@@ -204,10 +204,17 @@ async def broadcast_loop():
         
         state.data["serialPorts"] = refresh_ports()
         
-        # Nano bağlantı durumlarını kontrol et
+        # Nano bağlantı durumlarını kontrol et ve kopanları geri bağla
         for n in state.data.get("nanos", []):
-            if n.get("port"):
-                n["status"] = "ONLINE" if hw.is_port_online(n.get("port")) else "OFFLINE"
+            port = n.get("port")
+            if port:
+                is_online = hw.is_port_online(port)
+                if not is_online:
+                    # Kopmuşsa tekrar bağlanmayı dene
+                    hw.connect_to_port(port, n.get("baudRate", 9600))
+                    is_online = hw.is_port_online(port)
+                
+                n["status"] = "ONLINE" if is_online else "OFFLINE"
         
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
