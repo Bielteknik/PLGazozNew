@@ -297,6 +297,18 @@ async def broadcast_loop():
             if key not in state.data or state.data[key] is None:
                 state.data[key] = []
         
+        # Obje korumaları
+        if "config" not in state.data or state.data["config"] is None:
+            state.data["config"] = {"recipeId": "RECIPE-1", "volumeMl": 250}
+        if "inputGate" not in state.data or state.data["inputGate"] is None:
+            state.data["inputGate"] = {"name": "Giriş Kapısı", "isOpen": False}
+        if "outputGate" not in state.data or state.data["outputGate"] is None:
+            state.data["outputGate"] = {"name": "Çıkış Kapısı", "isOpen": False}
+        
+        # Reçete koruması (eğer liste boşsa arayüz çökmesin diye hayali bir reçete göster)
+        if not state.data["recipes"]:
+            state.data["recipes"] = [{"id": "RECIPE-1", "name": "Yükleniyor...", "targetCount": 1}]
+
         await sio.emit('STATE_UPDATE', state.data)
         await asyncio.sleep(2)
 
