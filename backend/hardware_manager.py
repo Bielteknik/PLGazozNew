@@ -155,7 +155,8 @@ class HardwareManager:
                 port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
 
         if port:
-            pin = "G1" if "IN" in gate_id or "G1" in gate_id else "G2"
+            gate_id_upper = gate_id.upper()
+            pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
             # 400 adım ileri (1) = Aç, 400 adım geri (-400) = Kilitler
             steps = 400 if int(position) == 1 else -400
             full_cmd = f"{pin}:{steps}"
@@ -220,6 +221,13 @@ class HardwareManager:
         else:
             print(f"[Hardware] HATA: ValvesNano sistemde bulunamadı!")
         return False
+
+    async def pulse_valve(self, valve_id, duration_ms):
+        """Bir vanayı belirli bir süre (ms) açıp kapatır."""
+        print(f"[Hardware] >>> TEST PULSE: Valf {valve_id}, Süre: {duration_ms}ms")
+        self.control_valve(valve_id, True)
+        await asyncio.sleep(duration_ms / 1000.0)
+        self.control_valve(valve_id, False)
 
     def toggle_valve(self, pin, state):
         self.control_valve(pin, state)

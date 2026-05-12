@@ -95,6 +95,8 @@ export default function App() {
              setValvePulseDuration={setValvePulseDuration}
              toggleGateEnabled={toggleGateEnabled}
              onResetCounter={resetCounter}
+             onToggleHardwareStatus={toggleHardwareStatus}
+             testValvePulse={testValvePulse}
              manualLogin={manualLogin}
              manualToken={manualToken}
              manualExpires={manualExpires}

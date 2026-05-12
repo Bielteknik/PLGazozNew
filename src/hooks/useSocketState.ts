@@ -96,6 +96,7 @@ export function useSocketState() {
     addNano: () => emitAction('ADD_HARDWARE', { nano: { id: `NANO-${Date.now()}`, name: 'Yeni Nano', port: '/dev/ttyUSB0', status: 'OFFLINE', pingMs: 0, baudRate: 9600 } }),
     removeNano: (id: string) => emitAction('REMOVE_HARDWARE', { id }),
     resetCounter: (target: 'input' | 'output', op: 'inc' | 'dec' | 'reset' = 'reset') => emitAction('MANAGE_COUNTER', { target, op }),
+    testValvePulse: (id: number, duration: number) => emitAction('TEST_VALVE_PULSE', { id, duration }),
     selectRecipe: (id: string) => emitAction('SELECT_RECIPE', { id }),
     updateRecipe: (id: string, updates: Partial<Recipe>) => emitAction('UPDATE_RECIPE', { id, updates }),
     addRecipe: (recipe: Recipe) => emitAction('ADD_RECIPE', { recipe }),

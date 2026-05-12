@@ -107,6 +107,12 @@ async def handle_action(sid, data):
         state.data["valves"] = valves
         db.save_state("valves", valves)
 
+    elif action_type == 'TEST_VALVE_PULSE':
+        valve_id = payload.get('id')
+        duration = payload.get('duration', 1000)
+        # Background task
+        asyncio.create_task(hw.pulse_valve(valve_id, duration))
+
     # --- Sayaç Yönetimi ---
     elif action_type == 'MANAGE_COUNTER':
         target = payload.get('target') # 'input' or 'output'

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
   Unlock, 
@@ -11,9 +11,10 @@ import {
   Target, 
   RefreshCw, 
   Timer, 
-  Power 
+  Power,
+  Play
 } from 'lucide-react';
-import { SystemData, SystemMode, ValveState, GateState, NanoState, SensorState, SystemConfig, Recipe } from '../../types/system';
+import { SystemData, SystemMode, Recipe } from '../../types/system';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -26,7 +27,8 @@ interface ManualControlProps {
   setValvePulseDuration: (id: number, duration: number) => void;
   toggleGateEnabled: (target: 'inputGate' | 'outputGate') => void;
   onResetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
-  onToggleHardwareStatus: (id: number) => void;
+  onToggleHardwareStatus: (id: number | string) => void;
+  testValvePulse: (id: number, duration: number) => void;
   manualLogin: (password: string) => void;
   manualToken: string | null;
   manualExpires: number | null;
@@ -42,13 +44,27 @@ export function ManualControl({
   toggleGateEnabled, 
   onResetCounter,
   onToggleHardwareStatus,
+  testValvePulse,
   manualLogin,
   manualToken,
   manualExpires
 }: ManualControlProps) {
-  const [password, setPassword] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<'ESKI' | 'YENI'>('YENI');
+  const [password, setPassword] = useState('');
+  const [selectedTab, setSelectedTab] = useState<'visual' | 'recipe_test'>('visual');
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string>(data.config.recipeId || '');
+  const [selectedValveId, setSelectedValveId] = useState<number | null>(null);
+  const [testDuration, setTestDuration] = useState<number>(1000);
+
+  const selectedRecipe = data.recipes.find(r => r.id === selectedRecipeId);
   
+  useEffect(() => {
+    if (selectedRecipe) {
+      setTestDuration(selectedRecipe.fillTimeMs || 1000);
+      const firstActiveValve = data.valves.find(v => v.enabled);
+      if (firstActiveValve) setSelectedValveId(firstActiveValve.id);
+    }
+  }, [selectedRecipeId, data.recipes]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     manualLogin(password);
@@ -58,206 +74,96 @@ export function ManualControl({
   const isManual = data.mode === 'MANUEL';
   const timeLeft = manualExpires ? Math.max(0, Math.floor((manualExpires - Date.now()) / 1000 / 60)) : 0;
 
-  const renderOldVersion = () => {
-    const rawMetrics = {
-      timestamp: new Date().toISOString(),
-      machine_id: "BIEL-RT-01",
-      active_valves: data.valves.filter(v => v.isOpen).length,
-      sensors: data.sensors.reduce((acc, s) => ({ ...acc, [s.id]: s.enabled ? 1 : 0 }), {}),
-      counters: { in: data.inputCount, out: data.outputCount },
-      config: data.config
-    };
-
+  if (!manualToken) {
     return (
-      <div className="flex-1 space-y-4 overflow-hidden flex flex-col pb-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-          {[
-            { label: 'SİSTEM DURUMU', value: data.mode, color: data.mode === 'MANUEL' ? 'text-orange-500' : 'text-emerald-500' },
-            { label: 'GİRİŞ ADET', value: data.inputCount, color: 'text-blue-400' },
-            { label: 'ÇIKIŞ ADET', value: data.outputCount, color: 'text-emerald-400' },
-            { label: 'VERIM (%)', value: data.inputCount > 0 ? Math.round((data.outputCount / data.inputCount) * 100) : 100, color: 'text-purple-400' },
-          ].map((stat, i) => (
-            <div key={i} className="bg-[#151921] border border-[#2D333F] p-3 rounded flex flex-col items-center justify-center">
-              <span className="text-[8px] font-bold text-gray-500 tracking-[0.2em]">{stat.label}</span>
-              <span className={cn("text-lg font-black font-mono mt-1", stat.color)}>{stat.value}</span>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-[#151921] border border-[#2D333F] rounded-xl p-8 shadow-2xl">
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-4">
+              <Shield className="text-orange-500" size={32} />
             </div>
-          ))}
-        </div>
-
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
-          <div className="md:col-span-2 bg-[#151921] border border-[#2D333F] rounded flex flex-col overflow-hidden">
-            <div className="p-2 bg-[#1C2029] border-b border-[#2D333F] flex justify-between items-center">
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center">
-                 <Cpu size={12} className="mr-2" /> Donanım Status Terminal (I/O)
-              </h3>
-              <div className="flex gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[8px] font-mono text-emerald-500 font-bold">LINK_ACTIVE</span>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
-              <div className="space-y-3">
-                <div className="text-[9px] font-bold text-gray-600 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">DOLUM VALFLERİ (V-BUS)</div>
-                <div className="grid grid-cols-2 gap-3">
-                  {data.valves.map(valve => (
-                    <div key={valve.id} className="flex items-center justify-between p-2 bg-[#0D1016] border border-[#1F2937] rounded">
-                      <div className="flex items-center gap-3">
-                         <div className={cn("w-2 h-2 rounded-full", valve.isOpen ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "bg-gray-800")} />
-                         <span className="text-xs font-mono text-gray-400">VALVE_0{valve.id}</span>
-                      </div>
-                      <button 
-                        onClick={() => toggleValve(valve.id)}
-                        className={cn(
-                          "px-4 py-1 rounded text-[9px] font-bold transition-all border uppercase",
-                          valve.isOpen ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-500"
-                        )}
-                      >
-                        {valve.isOpen ? 'FORCE_OFF' : 'FORCE_ON'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="text-[9px] font-bold text-gray-600 uppercase tracking-widest mb-2 border-b border-gray-800 pb-1">PNÖMATİK BARİYERLER (P-BUS)</div>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { id: 'inputGate', label: 'BARRIER_IN_CMD', state: data.inputGate.isOpen },
-                    { id: 'outputGate', label: 'BARRIER_OUT_CMD', state: data.outputGate.isOpen }
-                  ].map(gate => (
-                    <div key={gate.id} className="p-3 bg-[#0D1016] border border-[#1F2937] rounded flex items-center justify-between">
-                       <div className="flex items-center gap-3">
-                          <div className={cn("w-2 h-2 rounded-full", gate.state ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]")} />
-                          <span className="text-xs font-mono text-gray-400">{gate.label}</span>
-                       </div>
-                       <div className="flex gap-1">
-                          <button onClick={() => operateGate(gate.id as any, 100)} className={cn("px-2 py-1 rounded text-[8px] font-bold border", gate.state ? "bg-emerald-600 border-emerald-500 text-white" : "bg-gray-800 border-gray-700 text-gray-500")}>OPEN</button>
-                          <button onClick={() => operateGate(gate.id as any, 0)} className={cn("px-2 py-1 rounded text-[8px] font-bold border", !gate.state ? "bg-red-600 border-red-500 text-white" : "bg-gray-800 border-gray-700 text-gray-500")}>CLOSE</button>
-                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold text-white uppercase tracking-tight">Güvenli Erişim</h2>
+            <p className="text-xs text-gray-500 mt-2">Manuel kontrol yetkisi için şifrenizi giriniz.</p>
           </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex-1 bg-[#0D1016] border border-[#2D333F] rounded flex flex-col overflow-hidden">
-               <div className="p-2 bg-[#1C2029] border-b border-[#2D333F] flex items-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest underline decoration-orange-500 underline-offset-4">Ham Veri İzleme (RAW_TELEMETRY)</span>
-               </div>
-               <div className="flex-1 p-3 overflow-auto custom-scrollbar">
-                  <pre className="text-[9px] font-mono text-blue-400 leading-relaxed">
-                    {JSON.stringify(rawMetrics, null, 2)}
-                  </pre>
-               </div>
-            </div>
-
-            <div className="h-1/3 bg-[#0D1016] border border-[#2D333F] rounded flex flex-col overflow-hidden">
-               <div className="p-2 bg-[#1C2029] border-b border-[#2D333F] flex items-center">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sistem Olay Günlüğü</span>
-               </div>
-               <div className="flex-1 p-2 overflow-y-auto space-y-1 font-mono custom-scrollbar">
-                  <div className="text-[8px] text-emerald-500">[OK] Başlatma dizisi tamamlandı</div>
-                  <div className="text-[8px] text-gray-500">[{new Date().toLocaleTimeString()}] Manuel mod erişimi sağlandı</div>
-                  <div className="text-[8px] text-blue-500">[{new Date().toLocaleTimeString()}] Broker bağlantısı stabil</div>
-                  <div className="text-[8px] text-orange-500">[{new Date().toLocaleTimeString()}] Güvenlik protokolleri aktif</div>
-               </div>
-            </div>
-          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input 
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••"
+              className="w-full bg-[#0D1016] border border-[#2D333F] rounded-lg p-4 text-center text-2xl tracking-[0.5em] focus:border-orange-500 outline-none text-white transition-all"
+              autoFocus
+            />
+            <button className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-4 rounded-lg shadow-lg shadow-orange-500/20 transition-all active:scale-95">
+              GİRİŞ YAP
+            </button>
+          </form>
         </div>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="flex flex-col h-full space-y-4">
-      
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shrink-0 shadow-lg gap-4 md:gap-0">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "p-2 rounded border",
-            isManual ? "bg-orange-500/10 border-orange-500/20 text-orange-500" : "bg-gray-800 border-gray-700 text-gray-500"
-          )}>
-            <Unlock size={20} />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-white tracking-tight leading-none uppercase">
-              MANUEL KONTROL MERKEZİ
-            </h2>
-            <p className="text-[10px] text-gray-500 mt-1 font-medium">
-              Saha Donanımı Doğrudan Erişim Terminali
-            </p>
+    <div className="flex-1 flex flex-col p-6 min-h-0">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-black text-white tracking-tighter flex items-center italic">
+            <Shield className="mr-3 text-orange-500" size={28} /> MANUEL KONTROL MERKEZİ
+          </h1>
+          <div className="flex gap-1 bg-[#0D1016] p-1 rounded-lg border border-[#1F2937]">
+            <button
+              onClick={() => setSelectedTab('visual')}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-[10px] font-bold transition-all uppercase tracking-wider",
+                selectedTab === 'visual' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              GÖRSEL AKIŞ
+            </button>
+            <button
+              onClick={() => setSelectedTab('recipe_test')}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-[10px] font-bold transition-all uppercase tracking-wider",
+                selectedTab === 'recipe_test' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              REÇETE TEST
+            </button>
           </div>
         </div>
-        
-        <div className="flex gap-2 w-full md:w-auto">
-          <button
-            onClick={() => setMode('OTOMATİK')}
-            disabled={!isManual}
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/10 rounded-full border border-orange-500/20">
+            <Timer size={14} className="text-orange-500" />
+            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">{timeLeft} DK KALDI</span>
+          </div>
+          <button 
+            onClick={() => setMode(isManual ? 'BEKLEMEDE' : 'MANUEL')}
             className={cn(
-              "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[10px] transition-all border active:scale-95",
-              !isManual 
-                 ? "bg-gray-800/10 text-gray-700 border-gray-800 cursor-not-allowed opacity-50" 
-                 : "bg-[#052e16] text-[#4ade80] border-emerald-500/30 hover:bg-[#14532d]"
-            )}
-          >
-            <RefreshCw size={14} />
-            OTOMATİK
-          </button>
-          <button
-            onClick={() => setMode('MANUEL')}
-            disabled={isManual}
-            className={cn(
-              "flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded font-bold text-[10px] transition-all border active:scale-95",
-              isManual 
-                 ? "bg-orange-600 text-white border-orange-500 shadow-lg shadow-orange-900/20" 
-                 : "bg-[#381a03] text-orange-400 border-orange-500/20 hover:bg-[#7c2d12]"
+              "px-6 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 shadow-lg",
+              isManual ? "bg-orange-600 text-white shadow-orange-500/20" : "bg-gray-800 text-gray-400"
             )}
           >
             <Power size={14} />
-            MANUEL
+            {isManual ? 'MANUEL MOD AKTİF' : 'MANUEL MODA GEÇ'}
           </button>
         </div>
       </div>
 
-      <div className="flex space-x-2 border-b border-[#2D333F] shrink-0">
-        <button 
-          onClick={() => setActiveTab('ESKI')}
-          className={cn(
-            "px-4 py-2 text-[10px] font-bold transition-all border-b-2 uppercase tracking-widest",
-            activeTab === 'ESKI' ? "border-orange-500 text-orange-400 bg-orange-500/5" : "border-transparent text-gray-500 hover:text-gray-300"
-          )}
-        >
-          Klasik (Eski)
-        </button>
-        <button 
-          onClick={() => setActiveTab('YENI')}
-          className={cn(
-            "px-4 py-2 text-[10px] font-bold transition-all border-b-2 uppercase tracking-widest",
-            activeTab === 'YENI' ? "border-orange-500 text-orange-400 bg-orange-500/5" : "border-transparent text-gray-500 hover:text-gray-300"
-          )}
-        >
-          Modern (Yeni)
-        </button>
-      </div>
-
       {!isManual ? (
-        <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-[#2D333F] rounded bg-[#0D1016]">
-          <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-4 border border-gray-800">
-             <Shield size={32} className="text-gray-600" />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-20 h-20 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto border-4 border-gray-800 border-dashed animate-spin-slow">
+              <AlertCircle className="text-gray-600" size={32} />
+            </div>
+            <p className="text-gray-500 text-sm font-medium">Lütfen manuel modu aktif hale getirin.</p>
           </div>
-          <h3 className="text-lg text-gray-400 font-bold tracking-tight">Erişim Yetkisi Gerekiyor</h3>
-          <p className="text-xs text-gray-500 max-w-sm text-center mt-2 leading-relaxed font-medium px-4">
-             Manuel kontrolleri kullanmak için sistem modunu <span className="text-orange-500 font-bold uppercase">Manuel</span> olarak değiştirmeniz gerekmektedir.
-          </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto lg:overflow-hidden">
-          {activeTab === 'ESKI' ? renderOldVersion() : (
-            <div className="h-full grid grid-cols-12 gap-4 min-h-0 overflow-y-auto lg:overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
+          {selectedTab === 'visual' ? (
+            <div className="grid grid-cols-12 gap-6 flex-1 min-h-0">
               <div className="col-span-12 lg:col-span-9 bg-[#151921] border border-[#2D333F] rounded p-4 flex flex-col relative overflow-hidden shadow-inner min-h-[500px]">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[10px] font-bold text-gray-400 border-l-2 border-[#F97316] pl-2 flex items-center tracking-widest uppercase">
@@ -392,6 +298,105 @@ export function ManualControl({
                        Manuel modda tüm donanım limitleri (lazer sensörler, kilit mevcudiyeti vb.) devre dışıdır. Hareketlerden operatör sorumludur.
                     </p>
                  </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-12 gap-6 p-6 bg-[#0D1117] rounded-xl border border-gray-800 shadow-2xl flex-1">
+              <div className="col-span-12 lg:col-span-8 space-y-6">
+                <div className="bg-[#161B22] p-6 rounded-lg border border-gray-700">
+                  <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Shield className="text-blue-500" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white uppercase tracking-tight">Hassas Kalibrasyon Paneli</h3>
+                      <p className="text-[10px] text-gray-500">Seçili vana üzerinde reçete parametrelerini test edin.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase">1. Reçete Seçimi</label>
+                      <select 
+                        value={selectedRecipeId}
+                        onChange={(e) => setSelectedRecipeId(e.target.value)}
+                        className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
+                      >
+                        {data.recipes.map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase">2. Test Edilecek Vana</label>
+                      <select 
+                        value={selectedValveId || ''}
+                        onChange={(e) => setSelectedValveId(Number(e.target.value))}
+                        className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
+                      >
+                        {data.valves.filter(v => v.enabled).map(v => (
+                          <option key={v.id} value={v.id}>{v.name || `Vana ${v.id}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-8 border-t border-gray-800">
+                    <div className="flex items-end gap-6">
+                        <div className="flex-1 space-y-4">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">3. Test Süresi (Milisaniye)</label>
+                          <div className="relative">
+                            <input 
+                              type="number"
+                              value={testDuration}
+                              onChange={(e) => setTestDuration(Number(e.target.value))}
+                              className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-4 text-2xl font-mono text-blue-400 focus:border-blue-500 outline-none"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-bold">MS</span>
+                          </div>
+                        </div>
+                        
+                        <button 
+                          disabled={!selectedValveId}
+                          onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
+                          className="h-[64px] px-8 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center gap-3 active:scale-95"
+                        >
+                          <Play size={20} />
+                          TESTİ BAŞLAT
+                        </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+                <div className="bg-[#161B22] p-5 rounded-lg border border-gray-700 flex-1">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                      <Target size={12} className="text-orange-500" /> Kalibrasyon Notları
+                    </h4>
+                    <ul className="space-y-3">
+                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
+                        Test süresi varsayılan olarak seçili reçeteden gelir.
+                      </li>
+                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
+                        ML değerini tutturmak için süreyi buradan optimize edip reçeteye kaydedebilirsiniz.
+                      </li>
+                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
+                        Test sırasında kapılar kapalı kalır, sadece sıvı akışı kontrol edilir.
+                      </li>
+                    </ul>
+                </div>
+
+                <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+                    <div className="text-[10px] font-bold text-blue-400 mb-2">HIZLI BİLGİ</div>
+                    <p className="text-[9px] text-blue-300/60 italic leading-relaxed">
+                      1000ms (1 saniye) test yapıp biriken sıvıyı tartarak hassas ML/MS oranınızı hesaplayabilirsiniz.
+                    </p>
+                </div>
               </div>
             </div>
           )}
