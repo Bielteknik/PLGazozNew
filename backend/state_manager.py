@@ -22,7 +22,9 @@ class StateManager:
             "recipes": [],
             "valves": [],
             "sensors": [],
-            "nanos": []
+            "nanos": [],
+            "inputCount": 0,
+            "outputCount": 0
         }
         
         # Diğer tüm konfigürasyonu Database'den yükle

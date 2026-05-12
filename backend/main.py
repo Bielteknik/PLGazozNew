@@ -318,7 +318,7 @@ async def startup_event():
     
     # 1. Her şeyi sıfırla (Temiz Sayfa)
     db.reset_hardware_links()
-    state.data = db.get_all_state()
+    state.reload_from_db() # Ham veriyle ezmek yerine güvenli yükleme yap
     
     # 2. İlk Taramayı Yap
     print("[Startup] Donanım aranıyor...")
