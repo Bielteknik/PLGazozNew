@@ -9,6 +9,7 @@ import time
 from state_manager import StateManager
 from hardware_manager import HardwareManager
 from db_manager import DatabaseManager
+from production_manager import ProductionManager
 
 # --- Altyapı ---
 app = FastAPI()
@@ -23,6 +24,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 db = DatabaseManager()
 hw = HardwareManager()
 state = StateManager(db, hw)
+prod = ProductionManager(state, hw, db)
 
 # Donanım başlat (Database'deki en güncel yapılandırmayı uygula)
 hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
@@ -215,6 +217,7 @@ async def startup_event():
     global main_loop
     main_loop = asyncio.get_event_loop()
     asyncio.create_task(broadcast_loop())
+    asyncio.create_task(prod.run_loop())
 
 if __name__ == "__main__":
     print("\n" + "="*50)
