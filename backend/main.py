@@ -125,7 +125,7 @@ async def handle_action(sid, data):
 
     # --- Kilit Manuel Kontrol ---
     elif action_type == 'OPERATE_GATE':
-        gate_id = payload.get('id')
+        gate_id = payload.get('id') or payload.get('target')
         pos = payload.get('position') # 1=Aç/İleri, 0=Kapat/Geri
         hw.control_gate(gate_id, pos)
 

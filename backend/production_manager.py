@@ -14,17 +14,50 @@ class ProductionManager:
         """Ana üretim döngüsü."""
         while True:
             try:
-                # Mod verisi yoksa varsayılan MANUEL yap
                 mode = self.state.data.get("mode", "MANUEL")
                 if mode == "OTOMATİK":
                     if not self.is_running:
                         await self.start_cycle()
+                elif mode == "YIKAMA":
+                    await self.run_washing_cycle()
+                elif mode == "TAHLIYE":
+                    await self.run_flush_cycle()
                 else:
                     self.is_running = False
             except Exception as e:
                 print(f"[Production] Döngü Hatası: {e}")
             
             await asyncio.sleep(0.5)
+
+    async def run_washing_cycle(self):
+        """Valfleri periyodik olarak açıp kapatarak temizlik yapar."""
+        self.state.log("YIKAMA: Temizlik döngüsü aktif (Pulsing).")
+        while self.state.data.get("mode") == "YIKAMA":
+            # Tüm aktif valfleri aç
+            for v in self.state.data.get("valves", []):
+                if v.get("enabled"):
+                    self.hw.control_valve(v["id"], True)
+            await asyncio.sleep(0.5)
+            
+            # Tüm aktif valfleri kapat
+            for v in self.state.data.get("valves", []):
+                self.hw.control_valve(v["id"], False)
+            await asyncio.sleep(0.5)
+
+    async def run_flush_cycle(self):
+        """Tüm valfleri sürekli açık tutarak tahliye yapar."""
+        self.state.log("TAHLİYE: Tüm valfler sürekli açık.")
+        # Başlarken aç
+        for v in self.state.data.get("valves", []):
+            if v.get("enabled"):
+                self.hw.control_valve(v["id"], True)
+        
+        while self.state.data.get("mode") == "TAHLIYE":
+            await asyncio.sleep(0.5)
+            
+        # Biterken veya mod değişirken kapat
+        for v in self.state.data.get("valves", []):
+            self.hw.control_valve(v["id"], False)
 
     async def start_cycle(self):
         """Yeni bir üretim döngüsü başlatır."""

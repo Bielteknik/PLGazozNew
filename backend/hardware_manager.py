@@ -202,11 +202,23 @@ class HardwareManager:
 
     def control_valve(self, valve_id, state):
         """ValvesNano üzerinden vana kontrolü yapar. valve_id: 10-18"""
+        # 1. Portu bul
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+        
+        # 2. Eğer port bulunamadıysa aramayı dene
+        if not port:
+            print("[Hardware] ValvesNano portu hafızada yok, yeniden aranıyor...")
+            if self.find_and_connect("ValvesNano"):
+                port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+
         if port:
             state_str = "ON" if state else "OFF"
-            self.send_command(f"VALVE_CMD:{valve_id}:{state_str}", target_port=port)
+            full_cmd = f"VALVE_CMD:{valve_id}:{state_str}"
+            print(f"[Hardware] >>> VALF KOMUTU -> ValvesNano ({port}): {full_cmd}")
+            self.send_command(full_cmd, target_port=port)
             return True
+        else:
+            print(f"[Hardware] HATA: ValvesNano sistemde bulunamadı!")
         return False
 
     def toggle_valve(self, pin, state):
