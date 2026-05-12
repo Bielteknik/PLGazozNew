@@ -50,7 +50,6 @@ class DatabaseManager:
             if cursor.fetchone()[0] == 0:
                 print("[DB] İlk kurulum: Varsayılan veriler tohumlanıyor...")
                 self._seed_default_data(cursor)
-            else:
                 # Mevcut verideki eski ID'leri yeni isimlendirmeye zorla (Migration)
                 cursor.execute("SELECT key, value FROM system_state WHERE key IN ('nanos', 'sensors')")
                 rows = cursor.fetchall()
@@ -60,18 +59,26 @@ class DatabaseManager:
                     updated = False
                     
                     if key == 'nanos':
+                        # Sadece GatesNano ve ValvesNano'yu tut, diğerlerini sil
+                        new_nanos = []
                         for n in data:
-                            if n['id'] == 'NANO-1':
+                            if n['id'] == 'NANO-1' or n['id'] == 'GatesNano':
                                 n['id'] = 'GatesNano'
                                 n['name'] = 'Kilit ve Sensörler'
+                                new_nanos.append(n)
                                 updated = True
-                            elif n['id'] == 'NANO-2':
+                            elif n['id'] == 'NANO-2' or n['id'] == 'ValvesNano':
                                 n['id'] = 'ValvesNano'
                                 n['name'] = 'Valf Kontrol'
+                                new_nanos.append(n)
                                 updated = True
+                        
+                        if updated:
+                            data = new_nanos # Hayaletleri sildik
+                    
                     elif key == 'sensors':
                         for s in data:
-                            if s['device'] == 'NANO':
+                            if s['device'] == 'NANO' or s['device'] == 'NANO-1':
                                 s['device'] = 'GatesNano'
                                 updated = True
                     
@@ -113,15 +120,15 @@ class DatabaseManager:
                 "washValveIntervalMs": 2000
             },
             "valves": [
-                {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 12, "name": "3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 13, "name": "4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 14, "name": "5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 15, "name": "6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 16, "name": "7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"},
-                {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS"}
+                {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 12, "name": "3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 13, "name": "4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 14, "name": "5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 15, "name": "6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 16, "name": "7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
             ],
             "sensors": [
                 {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "GatesNano", "status": "ONLINE"},

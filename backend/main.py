@@ -246,11 +246,16 @@ async def broadcast_loop():
                 # --- Otomatik Eşleştirme (Auto-Mapping) ---
                 if is_online:
                     if n['id'] == 'ValvesNano':
-                        # Tüm valfleri ValvesNano'ya bağla
+                        # Tüm valfleri ValvesNano'ya mühürle
+                        valves_updated = False
                         for v in state.data.get("valves", []):
                             if v.get("connectionId") != "ValvesNano":
                                 v["connectionId"] = "ValvesNano"
-                                print(f"[Auto-Map] Valf {v['id']} -> ValvesNano")
+                                valves_updated = True
+                        
+                        if valves_updated:
+                            print(f"[Auto-Map] Tüm Valf Kartları -> ValvesNano üzerine mühürlendi.")
+                            db.save_state("valves", state.data["valves"])
                     
                     elif n['id'] == 'GatesNano':
                         # Tüm sensörleri ve sistem kilitlerini GatesNano'ya bağla
