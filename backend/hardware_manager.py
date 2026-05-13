@@ -318,21 +318,31 @@ class HardwareManager:
             def poll_loop():
                 last_in = 1
                 last_out = 1
+                last_in_time = 0
+                last_out_time = 0
+                debounce_ms = 0.2 # 200ms cooldown
+                
                 while self.polling_active:
                     try:
+                        now = time.time()
+                        
                         # Giriş Sensörü
                         in_val = lgpio.gpio_read(self.gpio_h, in_pin)
                         if in_val == 0 and last_in == 1:
-                            self._handle_input("RASPI")
+                            if (now - last_in_time) > debounce_ms:
+                                self._handle_input("RASPI")
+                                last_in_time = now
                         last_in = in_val
                         
                         # Çıkış Sensörü
                         out_val = lgpio.gpio_read(self.gpio_h, out_pin)
                         if out_val == 0 and last_out == 1:
-                            self._handle_output("RASPI")
+                            if (now - last_out_time) > debounce_ms:
+                                self._handle_output("RASPI")
+                                last_out_time = now
                         last_out = out_val
 
-                        time.sleep(0.01) # 10ms (Yüksek hız)
+                        time.sleep(0.01) # 10ms tarama hızı
                     except: break
 
             self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
