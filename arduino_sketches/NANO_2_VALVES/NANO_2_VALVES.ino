@@ -8,7 +8,7 @@ const int valvePins[] = {2, 3, 4, 5, 6, 7, 8, 11, 12}; // 9 Valf
 const int numValves = 9;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   for(int i = 0; i < numValves; i++) { 
     pinMode(valvePins[i], OUTPUT); 

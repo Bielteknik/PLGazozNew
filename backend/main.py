@@ -37,7 +37,14 @@ def safe_emit():
         )
 
 # Sensör callback'lerini bağla (Arduino'dan gelen veriler için)
-hw.on_input_detected = lambda d_id, s_type: prod.handle_sensor(d_id, s_type)
+def handle_sensor_event(d_id, s_type):
+    prod.handle_sensor(d_id, s_type)
+    # Anında arayüze haber ver (Gecikmeyi önlemek için)
+    # create_task kullanarak event loop'u bloke etmeden emit yapıyoruz
+    if main_loop:
+        main_loop.create_task(sio.emit('STATE_UPDATE', state.data))
+
+hw.on_input_detected = handle_sensor_event
 
 
 # --- Yardımcı ---

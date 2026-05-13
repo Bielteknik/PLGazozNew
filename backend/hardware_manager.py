@@ -24,7 +24,7 @@ class HardwareManager:
         filtered = [p for p in ports if "ttyUSB" in p or "ttyACM" in p]
         return sorted(filtered)
 
-    def connect_to_port(self, port, baudrate=9600):
+    def connect_to_port(self, port, baudrate=115200):
         """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
         try:
             if port in self.serial_conns:
@@ -191,15 +191,20 @@ class HardwareManager:
         return False
 
     def update(self):
-        """Tüm açık portları tarar ve ID önekli verileri işler."""
+        """Tüm açık portları tarar ve beklemedeki TÜM verileri hızlıca işler."""
         for port, conn in list(self.serial_conns.items()):
             try:
                 if not conn.is_open: continue
-                if conn.in_waiting > 0:
-                    line = conn.readline().decode('utf-8', errors='ignore').strip()
+                
+                # Bekleyen tüm satırları oku (Bloke etmeden)
+                while conn.in_waiting > 0:
+                    line_bytes = conn.readline()
+                    if not line_bytes: break
+                    
+                    line = line_bytes.decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    # ID formatı kontrolü: "NANO-1:P1:17"
+                    # ID formatı kontrolü: "GatesNano:P1:IN"
                     if ":" in line:
                         parts = line.split(":")
                         device_id = parts[0]
@@ -220,16 +225,13 @@ class HardwareManager:
                                 self.device_status[device_id] = "READY"
                                 print(f"[Hardware] {device_id} İşlem Tamamlandı.")
                         elif line.startswith("ID:"):
-                            # El sıkışma dışı gelen ID mesajlarını da işle (Örn: Restart sonrası)
-                            new_id = line.replace("ID:", "").strip() # Boşlukları temizle!
+                            new_id = line.replace("ID:", "").strip()
                             if new_id in ["GatesNano", "ValvesNano"]:
                                 self.port_to_id_map[port] = new_id
-                                self.device_status[new_id] = "READY" # Geri geldiğinde hazır kabul et
-                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id} (HAZIR)")
-                
+                                self.device_status[new_id] = "READY"
+                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
             except Exception as e:
-                # Bağlantıyı hemen silme, sadece hatayı logla
-                if "outputCount" not in str(e): # Bilinen sayaç hatasını gizle
+                if "outputCount" not in str(e):
                     print(f"[Hardware] Okuma Uyarısı ({port}): {e}")
 
     def control_valve(self, valve_id, state):
@@ -316,44 +318,26 @@ class HardwareManager:
                     if s.get("type") == "INPUT": in_pin = pin
                     else: out_pin = pin
 
+            # Alerts (Interrupts) for instantaneous reaction
+            def on_alert(chip, gpio, level, tick):
+                if level == 0: # Falling edge (Object detected)
+                    if gpio == in_pin:
+                        self._handle_input("RASPI")
+                    elif gpio == out_pin:
+                        self._handle_output("RASPI")
+
+            # Set up alerts
             lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
             lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
+            
+            # 10ms debounce at hardware level
+            lgpio.gpio_set_debounce_period(self.gpio_h, in_pin, 10000) 
+            lgpio.gpio_set_debounce_period(self.gpio_h, out_pin, 10000)
+
+            lgpio.gpio_set_alert_func(self.gpio_h, in_pin, on_alert)
+            lgpio.gpio_set_alert_func(self.gpio_h, out_pin, on_alert)
 
             self.polling_active = True
-            self.last_in_state = 1
-            self.last_out_state = 1
-
-            def poll_loop():
-                # Debounce sayaçları
-                in_stable_count = 0
-                out_stable_count = 0
-                required_stable = 3 # ~150ms stabilite
-
-                while self.polling_active:
-                    try:
-                        # Giriş Sensörü (Debounce ile)
-                        in_val = lgpio.gpio_read(self.gpio_h, in_pin)
-                        if in_val == 0: # Aktif (Engel var)
-                            in_stable_count += 1
-                            if in_stable_count == required_stable:
-                                self._handle_input("RASPI")
-                        else: # Pasif (Engel yok)
-                            in_stable_count = 0
-                        
-                        # Çıkış Sensörü (Debounce ile)
-                        out_val = lgpio.gpio_read(self.gpio_h, out_pin)
-                        if out_val == 0: # Aktif
-                            out_stable_count += 1
-                            if out_stable_count == required_stable:
-                                self._handle_output("RASPI")
-                        else: # Pasif
-                            out_stable_count = 0
-
-                        time.sleep(0.05)
-                    except: break
-
-            self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
-            self.poll_thread.start()
             print(f"[GPIO] İzleme başladı (Hibrit Mod - Pi 5)")
 
         except Exception as e:

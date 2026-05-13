@@ -30,7 +30,7 @@ void enableDriver() { digitalWrite(EN_PIN, LOW); }
 void disableDriver() { digitalWrite(EN_PIN, HIGH); }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   pinMode(STEP1_PIN, OUTPUT);
   pinMode(DIR1_PIN, OUTPUT);
@@ -45,11 +45,14 @@ void setup() {
   Serial.print("ID:"); Serial.println(HARDWARE_ID);
 }
 
+String inputString = "";
+bool stringComplete = false;
+
 void loop() {
   unsigned long now = millis();
   unsigned long nowMicros = micros();
 
-  // --- SENSÖR TAKİBİ (Daha Hassas Okuma) ---
+  // --- SENSÖR TAKİBİ (Anlık) ---
   int currentIn = digitalRead(SENS_IN);
   if (currentIn == LOW && lastInState == HIGH) {
     Serial.print(HARDWARE_ID); Serial.println(":P1:IN");
@@ -66,7 +69,7 @@ void loop() {
   if (currentSteps1 < targetSteps1) {
     if (nowMicros - lastStepMicros1 >= stepDelay) {
       digitalWrite(STEP1_PIN, HIGH);
-      delayMicroseconds(2); // Minimum pulse width
+      delayMicroseconds(2);
       digitalWrite(STEP1_PIN, LOW);
       lastStepMicros1 = nowMicros;
       currentSteps1++;
@@ -86,16 +89,23 @@ void loop() {
     }
   }
 
-  // --- KOMUT İŞLEME ---
-  if (Serial.available() > 0) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
+  // --- SERİ KOMUT İŞLEME (Non-blocking) ---
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') {
+      stringComplete = true;
+      break;
+    }
+    inputString += inChar;
+  }
 
-    if (cmd == "IDENTIFY" || cmd == "STATUS") {
+  if (stringComplete) {
+    inputString.trim();
+    if (inputString == "IDENTIFY" || inputString == "STATUS") {
       Serial.print("ID:"); Serial.println(HARDWARE_ID);
     }
-    else if (cmd.startsWith("G1:")) {
-      int val = cmd.substring(3).toInt();
+    else if (inputString.startsWith("G1:")) {
+      int val = inputString.substring(3).toInt();
       dir1 = (val > 0);
       digitalWrite(DIR1_PIN, dir1);
       targetSteps1 = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
@@ -103,8 +113,8 @@ void loop() {
       enableDriver();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:G1:"); Serial.println(val);
     }
-    else if (cmd.startsWith("G2:")) {
-      int val = cmd.substring(3).toInt();
+    else if (inputString.startsWith("G2:")) {
+      int val = inputString.substring(3).toInt();
       dir2 = (val > 0);
       digitalWrite(DIR2_PIN, dir2);
       targetSteps2 = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
@@ -112,10 +122,13 @@ void loop() {
       enableDriver();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:G2:"); Serial.println(val);
     }
-    else if (cmd.startsWith("s")) {
-      stepDelay = cmd.substring(1).toInt();
+    else if (inputString.startsWith("s")) {
+      stepDelay = inputString.substring(1).toInt();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:SPEED:"); Serial.println(stepDelay);
     }
+    
+    inputString = "";
+    stringComplete = false;
   }
 
   // --- OTOMATİK UYKU ---
