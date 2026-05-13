@@ -31,13 +31,17 @@ class StateManager:
         self.reload_from_db()
 
     def reload_from_db(self):
-        """Database'deki tüm yapılandırmayı state.data içine çeker."""
+        """Database'deki tüm yapılandırmayı state.data içine çeker (Canlı sayaçları korur)."""
+        # Canlı sayaçları yedekle
+        curr_in = self.data.get("inputCount", 0)
+        curr_out = self.data.get("outputCount", 0)
+        
         db_state = self.db.get_all_state()
         self.data.update(db_state)
         
-        # Temel sayaçların varlığından emin ol
-        if "inputCount" not in self.data: self.data["inputCount"] = 0
-        if "outputCount" not in self.data: self.data["outputCount"] = 0
+        # Canlı sayaçları geri yükle
+        self.data["inputCount"] = curr_in
+        self.data["outputCount"] = curr_out
         
         # Reçeteleri ayrıca yükle
         self.data["recipes"] = self.db.get_recipes()
