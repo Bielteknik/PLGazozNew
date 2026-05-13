@@ -90,7 +90,12 @@ class HardwareManager:
         """GatesNano üzerinden kilit motoru kontrolü yapar."""
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
         if port:
-            self.send_command(f"{pin}:{position}", target_port=port)
+            # Map frontend IDs to Arduino commands
+            cmd_prefix = pin
+            if pin == "inputGate": cmd_prefix = "G1"
+            elif pin == "outputGate": cmd_prefix = "G2"
+            
+            self.send_command(f"{cmd_prefix}:{position}", target_port=port)
             return True
         return False
 

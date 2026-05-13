@@ -12,8 +12,9 @@ export const INITIAL_STATE: SystemData = {
   nanos: [],
   sensors: [],
   terminalLogs: ['Sistem Hazır. Lütfen donanım birimlerini tanımlayın.'],
-  inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true },
-  outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true },
+  serialPorts: [],
+  inputGate: { id: 'GATE-IN', name: 'Giriş Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G1' },
+  outputGate: { id: 'GATE-OUT', name: 'Çıkış Kapısı', isOpen: false, position: 0, enabled: true, pin: 'G2' },
   extraGates: [],
   cycleHistory: [],
   
