@@ -2,6 +2,7 @@ import serial
 import serial.tools.list_ports
 import time
 import os
+import asyncio
 
 class HardwareManager:
     def __init__(self):
