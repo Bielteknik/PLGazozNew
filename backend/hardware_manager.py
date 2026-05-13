@@ -283,34 +283,38 @@ class HardwareManager:
     def cleanup_gpio(self):
         """GPIO kaynaklarını güvenli bir şekilde serbest bırakır."""
         self.polling_active = False
-        if hasattr(self, 'poll_thread') and self.poll_thread.is_alive():
-            # Thread'in bitmesini beklemiyoruz (daemon), sadece flag'i kapattık
-            pass
+        
+        # GpioZero nesnelerini kapat
+        if hasattr(self, 'sens_in_dev'):
+            try: self.sens_in_dev.close()
+            except: pass
+            del self.sens_in_dev
+
+        if hasattr(self, 'sens_out_dev'):
+            try: self.sens_out_dev.close()
+            except: pass
+            del self.sens_out_dev
             
         try:
             import lgpio
             if hasattr(self, 'gpio_h'):
-                # Önce tüm pinleri serbest bırakmaya çalış (opsiyonel ama güvenli)
-                # lgpio'da açık chip'i kapatmak yeterlidir
                 lgpio.gpiochip_close(self.gpio_h)
+                del self.gpio_h
                 delattr(self, 'gpio_h')
         except:
             pass
 
     def setup_gpio(self, input_pin=17, output_pin=27, sensors=None):
         """Raspberry Pi GPIO pinlerini sensörler için hazırlar."""
-        self.cleanup_gpio() # Önce eski bağlantıyı temizle (GPIO Busy hatasını önler)
+        self.cleanup_gpio() 
         self.sensor_config = sensors or []
         try:
-            import lgpio
-            import threading
-            self.gpio_h = lgpio.gpiochip_open(0)
-
-            # Varsayılanlar
+            from gpiozero import DigitalInputDevice
+            
+            # Varsayılanlar (GPIO numaraları)
             in_pin = input_pin
             out_pin = output_pin
 
-            # Sadece RASPI seçilen sensörler için pinleri ayarla
             for s in self.sensor_config:
                 if s.get("device") == "RASPI" and s.get("enabled"):
                     pin = int(s.get("pin", 0))
@@ -318,26 +322,19 @@ class HardwareManager:
                     if s.get("type") == "INPUT": in_pin = pin
                     else: out_pin = pin
 
-            # Alerts (Interrupts) for instantaneous reaction
-            def on_alert(chip, gpio, level, tick):
-                if level == 0: # Falling edge (Object detected)
-                    if gpio == in_pin:
-                        self._handle_input("RASPI")
-                    elif gpio == out_pin:
-                        self._handle_output("RASPI")
+            # GPIO Nesnelerini oluştur (Interrupt tabanlı)
+            self.sens_in_dev = DigitalInputDevice(in_pin, pull_up=True, bounce_time=0.01) # 10ms debounce
+            self.sens_out_dev = DigitalInputDevice(out_pin, pull_up=True, bounce_time=0.01)
 
-            # Set up alerts
-            lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
-            lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
-            
-            lgpio.gpio_set_alert_func(self.gpio_h, in_pin, on_alert)
-            lgpio.gpio_set_alert_func(self.gpio_h, out_pin, on_alert)
+            # Callback'leri bağla
+            self.sens_in_dev.when_activated = lambda: self._handle_input("RASPI")
+            self.sens_out_dev.when_activated = lambda: self._handle_output("RASPI")
 
             self.polling_active = True
-            print(f"[GPIO] İzleme başladı (Hibrit Mod - Pi 5)")
+            print(f"[GPIO] İzleme başladı (GpioZero/Interrupt Mod - Pi 5, Pins: {in_pin}, {out_pin})")
 
         except Exception as e:
-            print(f"[GPIO] Kurulum Hatası (Muhtemelen Pi değil): {e}")
+            print(f"[GPIO] Kurulum Hatası (GpioZero): {e}")
 
     def _handle_input(self, source):
         print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")

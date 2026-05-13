@@ -29,20 +29,20 @@ prod = ProductionManager(state, hw, db)
 # Donanım başlat (Database'deki en güncel yapılandırmayı uygula)
 hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
 
-# Arayüze güvenli veri gönderme (Thread-Safe)
+import copy
+
+# Arayüze güvenli veri gönderme (Thread-Safe & Deep Copy)
 def safe_emit():
-    if main_loop and main_loop.is_running():
-        main_loop.call_soon_threadsafe(
-            lambda: asyncio.create_task(sio.emit('STATE_UPDATE', state.data))
-        )
+    if main_loop:
+        # Veriyi kopyalayarak gönderiyoruz (Race condition ve referans sorunlarını önlemek için)
+        data_copy = copy.deepcopy(state.data)
+        asyncio.run_coroutine_threadsafe(sio.emit('STATE_UPDATE', data_copy), main_loop)
 
 # Sensör callback'lerini bağla (Arduino'dan gelen veriler için)
 def handle_sensor_event(d_id, s_type):
     prod.handle_sensor(d_id, s_type)
-    # Anında arayüze haber ver (Gecikmeyi önlemek için)
-    # create_task kullanarak event loop'u bloke etmeden emit yapıyoruz
-    if main_loop:
-        main_loop.create_task(sio.emit('STATE_UPDATE', state.data))
+    print(f"[Hardware] Emit Tetiklendi: {s_type}")
+    safe_emit()
 
 hw.on_input_detected = handle_sensor_event
 
@@ -345,8 +345,8 @@ async def broadcast_loop():
         if not state.data["recipes"]:
             state.data["recipes"] = [{"id": "RECIPE-1", "name": "Yükleniyor...", "targetCount": 1}]
 
-        await sio.emit('STATE_UPDATE', state.data)
-        await asyncio.sleep(2)
+        safe_emit()
+        await asyncio.sleep(0.5)
 
 @app.on_event("startup")
 async def startup_event():
