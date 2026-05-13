@@ -16,7 +16,8 @@ export const ManualControl: React.FC = () => {
     testValvePulse, 
     updateRecipe,
     updateSystemGate,
-    updateSensor
+    updateSensor,
+    sendNanoCommand
   } = useSocketState();
   
   const [password, setPassword] = useState('');
@@ -28,7 +29,7 @@ export const ManualControl: React.FC = () => {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [selectedValveId, setSelectedValveId] = useState<number | null>(null);
   const [testDuration, setTestDuration] = useState(1000);
-  const [gateCal, setGateCal] = useState({ target: 'inputGate' as 'inputGate' | 'outputGate', steps: 400 });
+  const [gateCal, setGateCal] = useState({ target: 'inputGate' as 'inputGate' | 'outputGate', steps: 400, speed: 800 });
   const [sensorCal, setSensorCal] = useState({ id: 'input', debounceMs: 100 });
 
   const isManual = data.mode === 'MANUEL';
@@ -425,8 +426,31 @@ export const ManualControl: React.FC = () => {
 
                                <div className="pt-6 border-t border-[#2D333F] space-y-6">
                                   <div className="grid grid-cols-2 gap-8">
+                                     <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">3. Motor Hızı (Gecikme ms)</label>
+                                        <div className="flex gap-4 items-center">
+                                           <input 
+                                             type="range"
+                                             min="200"
+                                             max="2000"
+                                             step="50"
+                                             value={gateCal.speed}
+                                             onChange={(e) => setGateCal(prev => ({ ...prev, speed: Number(e.target.value) }))}
+                                             className="flex-1 accent-orange-500 h-1.5 bg-[#0D1016] rounded-lg appearance-none cursor-pointer"
+                                           />
+                                           <span className="text-[10px] font-mono text-orange-400 w-12">{gateCal.speed}µs</span>
+                                           <button 
+                                              onClick={() => sendNanoCommand('GatesNano', `s${gateCal.speed}`)}
+                                              className="p-1.5 bg-[#1C2029] hover:bg-[#2D333F] border border-[#374151] rounded text-gray-400 transition-all"
+                                              title="Hızı Uygula"
+                                           >
+                                              <RefreshCw size={12} />
+                                           </button>
+                                        </div>
+                                     </div>
+
                                      <div className="space-y-3">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">3. Manuel Hareket Testi</label>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">4. Manuel Hareket Testi</label>
                                         <div className="flex gap-2">
                                            <button 
                                               onClick={() => operateGate(gateCal.target, -gateCal.steps)}

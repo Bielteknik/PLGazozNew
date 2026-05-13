@@ -5,18 +5,23 @@
 
 #define HARDWARE_ID "GatesNano"
 
-#define DIR1_PIN 2
-#define STEP1_PIN 5
-#define DIR2_PIN 3
-#define STEP2_PIN 6
+#define STEP1_PIN 2
+#define DIR1_PIN 5
+#define STEP2_PIN 3
+#define DIR2_PIN 6
 #define EN_PIN 8
 
 #define SENS_IN 12
 #define SENS_OUT 13
 
+// Motor States
+long targetSteps1 = 0, currentSteps1 = 0;
+long targetSteps2 = 0, currentSteps2 = 0;
+bool dir1 = true, dir2 = true;
+unsigned long lastStepMicros1 = 0, lastStepMicros2 = 0;
 int stepDelay = 800;
 unsigned long lastMoveTime = 0;
-const long DEFAULT_STEPS = 1000; // 1/0 komutu geldiğinde atılacak adım
+const long DEFAULT_STEPS = 1000;
 
 int lastInState = HIGH;
 int lastOutState = HIGH;
@@ -37,65 +42,76 @@ void setup() {
   pinMode(SENS_OUT, INPUT_PULLUP);
   
   disableDriver();
-  // İlk açılışta kimlik bildir
   Serial.print("ID:"); Serial.println(HARDWARE_ID);
 }
 
-void moveMotor(int stepPin, int dirPin, bool dir, long steps) {
-  enableDriver();
-  digitalWrite(dirPin, dir);
-  
-  for(long i = 0; i < steps; i++) {
-    digitalWrite(stepPin, HIGH);
-    delayMicroseconds(stepDelay);
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(stepDelay);
-  }
-  lastMoveTime = millis();
-}
-
 void loop() {
-  // --- LAZER SENSÖR TAKİBİ (Kimlikli Raporlama) ---
+  unsigned long now = millis();
+  unsigned long nowMicros = micros();
+
+  // --- SENSÖR TAKİBİ (Daha Hassas Okuma) ---
   int currentIn = digitalRead(SENS_IN);
   if (currentIn == LOW && lastInState == HIGH) {
     Serial.print(HARDWARE_ID); Serial.println(":P1:IN");
-    delay(50);
   }
   lastInState = currentIn;
 
   int currentOut = digitalRead(SENS_OUT);
   if (currentOut == LOW && lastOutState == HIGH) {
     Serial.print(HARDWARE_ID); Serial.println(":P1:OUT");
-    delay(50);
   }
   lastOutState = currentOut;
+
+  // --- MOTOR 1 KONTROL (Non-blocking) ---
+  if (currentSteps1 < targetSteps1) {
+    if (nowMicros - lastStepMicros1 >= stepDelay) {
+      digitalWrite(STEP1_PIN, HIGH);
+      delayMicroseconds(2); // Minimum pulse width
+      digitalWrite(STEP1_PIN, LOW);
+      lastStepMicros1 = nowMicros;
+      currentSteps1++;
+      lastMoveTime = now;
+    }
+  }
+
+  // --- MOTOR 2 KONTROL (Non-blocking) ---
+  if (currentSteps2 < targetSteps2) {
+    if (nowMicros - lastStepMicros2 >= stepDelay) {
+      digitalWrite(STEP2_PIN, HIGH);
+      delayMicroseconds(2);
+      digitalWrite(STEP2_PIN, LOW);
+      lastStepMicros2 = nowMicros;
+      currentSteps2++;
+      lastMoveTime = now;
+    }
+  }
 
   // --- KOMUT İŞLEME ---
   if (Serial.available() > 0) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
 
-    // Kimlik Sorguları
     if (cmd == "IDENTIFY" || cmd == "STATUS") {
       Serial.print("ID:"); Serial.println(HARDWARE_ID);
     }
-    // Giriş Motoru (G1)
     else if (cmd.startsWith("G1:")) {
       int val = cmd.substring(3).toInt();
-      // val == 1 ise ileri, val == 0 ise geri (varsayılan adım)
-      // val > 1 ise spesifik adım sayısı kadar git
-      long targetSteps = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
-      moveMotor(STEP1_PIN, DIR1_PIN, (val > 0), targetSteps);
+      dir1 = (val > 0);
+      digitalWrite(DIR1_PIN, dir1);
+      targetSteps1 = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
+      currentSteps1 = 0;
+      enableDriver();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:G1:"); Serial.println(val);
     }
-    // Çıkış Motoru (G2)
     else if (cmd.startsWith("G2:")) {
       int val = cmd.substring(3).toInt();
-      long targetSteps = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
-      moveMotor(STEP2_PIN, DIR2_PIN, (val > 0), targetSteps);
+      dir2 = (val > 0);
+      digitalWrite(DIR2_PIN, dir2);
+      targetSteps2 = (abs(val) <= 1) ? DEFAULT_STEPS : abs(val);
+      currentSteps2 = 0;
+      enableDriver();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:G2:"); Serial.println(val);
     }
-    // Hız Ayarı
     else if (cmd.startsWith("s")) {
       stepDelay = cmd.substring(1).toInt();
       Serial.print(HARDWARE_ID); Serial.print(":ACK:SPEED:"); Serial.println(stepDelay);
@@ -103,7 +119,9 @@ void loop() {
   }
 
   // --- OTOMATİK UYKU ---
-  if (millis() - lastMoveTime > 2000) {
-    disableDriver();
+  if (currentSteps1 >= targetSteps1 && currentSteps2 >= targetSteps2) {
+    if (now - lastMoveTime > 1000) {
+      disableDriver();
+    }
   }
 }
