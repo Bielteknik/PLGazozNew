@@ -28,12 +28,22 @@ class ProductionManager:
             await asyncio.sleep(0.5)
 
     async def run_washing_cycle(self):
-        self.state.log("YIKAMA: Arduino washing modu başlatıldı.")
-        self.hw.send_command("WASH_START")
-        while self.state.data.get("mode") == "YIKAMA":
-            await asyncio.sleep(1)
-        self.hw.send_command("WASH_STOP")
-        self.state.log("YIKAMA: Durduruldu.")
+        self.state.log("YIKAMA: Valf çalkalama başlatıldı.")
+        valves = self.state.data.get("valves", [])
+        try:
+            while self.state.data.get("mode") == "YIKAMA":
+                for v in valves:
+                    if v.get("enabled"):
+                        self.hw.control_valve(v["id"], True)
+                await asyncio.sleep(0.5)
+                for v in valves:
+                    if v.get("enabled"):
+                        self.hw.control_valve(v["id"], False)
+                await asyncio.sleep(0.5)
+        finally:
+            for v in valves:
+                self.hw.control_valve(v["id"], False)
+            self.state.log("YIKAMA: Durduruldu, tüm valfler kapatıldı.")
 
     async def run_flush_cycle(self):
         self.state.log("TAHLİYE: Otomatik şişe boşaltma başlatıldı.")
@@ -78,6 +88,13 @@ class ProductionManager:
         self.state.log(f"Reçete: {self.current_recipe['name']} | Hedef: {target} şişe | Dolum: {fill_ms}ms")
 
         while self.state.data["mode"] == "OTOMATİK":
+            if self.state.data.get("stopAfterCycleRequested"):
+                self.state.data["stopAfterCycleRequested"] = False
+                self.state.data["mode"] = "BEKLEMEDE"
+                self.state.log("Döngü sonu bekleme istendi, üretim durduruldu.")
+                self.is_running = False
+                return
+
             cycle_start = time.time()
             self.state.data["inputCount"] = 0
             self.state.data["outputCount"] = 0
@@ -155,6 +172,12 @@ class ProductionManager:
                 self.state.log(f"UYARI: Giren ({self.state.data['inputCount']}) ve çıkan ({self.state.data['outputCount']}) eşit değil! Onay bekleniyor...")
 
                 while self.state.data.get("activePrompt") == "COUNT_MISMATCH":
+                    if self.state.data.get("stopAfterCycleRequested"):
+                        self.state.data["stopAfterCycleRequested"] = False
+                        self.state.data["activePrompt"] = None
+                        self.state.data["mode"] = "BEKLEMEDE"
+                        self.is_running = False
+                        return
                     await asyncio.sleep(0.1)
                     if self.state.data["mode"] != "OTOMATİK":
                         self.is_running = False
@@ -164,18 +187,21 @@ class ProductionManager:
 
     def _save_cycle(self, recipe_id, duration_ms, success):
         record = {
+            "id": f"CYC-{int(time.time())}",
             "recipeId": recipe_id,
             "timestamp": int(time.time()),
             "duration": duration_ms,
             "inputCount": self.state.data["inputCount"],
             "outputCount": self.state.data["outputCount"],
-            "success": success
+            "validationStatus": "PASS" if success else "FAIL"
         }
         self.db.add_cycle(record)
         history = self.db.get_cycle_history(50)
         self.state.data["cycleHistory"] = history
 
     def handle_sensor(self, device_id, sensor_type="IN"):
+        if self.state.data.get("mode") not in ("OTOMATİK", "TAHLIYE", "YIKAMA"):
+            return
         if sensor_type == "IN":
             self.state.increment_input()
         else:

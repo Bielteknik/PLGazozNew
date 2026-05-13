@@ -73,16 +73,23 @@ class DatabaseManager:
                         if n['id'] == 'NANO-1' or n['id'] == 'GatesNano':
                             n['id'] = 'GatesNano'
                             n['name'] = 'Kilit ve Sensörler'
+                            n['baudRate'] = 115200
                             new_nanos.append(n)
                             updated = True
                         elif n['id'] == 'NANO-2' or n['id'] == 'ValvesNano':
                             n['id'] = 'ValvesNano'
                             n['name'] = 'Valf Kontrol'
+                            n['baudRate'] = 115200
                             new_nanos.append(n)
                             updated = True
-                    
                     if updated:
-                        data = new_nanos # Hayaletleri sildik
+                        data = new_nanos
+
+                elif key == 'valves':
+                    for v in data:
+                        if 'connectionId' in v:
+                            v['nanoId'] = v.pop('connectionId')
+                            updated = True
                 
                 elif key == 'sensors':
                     for s in data:
@@ -127,15 +134,15 @@ class DatabaseManager:
                 "washValveIntervalMs": 2000
             },
             "valves": [
-                {"id": 10, "name": "Vana 1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 11, "name": "Vana 2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 12, "name": "Vana 3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 13, "name": "Vana 4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 14, "name": "Vana 5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 15, "name": "Vana 6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 16, "name": "Vana 7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 17, "name": "Vana 8", "pin": "11", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 18, "name": "Vana 9", "pin": "12", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
+                {"id": 10, "name": "Vana 1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 11, "name": "Vana 2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 12, "name": "Vana 3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 13, "name": "Vana 4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 14, "name": "Vana 5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 15, "name": "Vana 6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 16, "name": "Vana 7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 17, "name": "Vana 8", "pin": "11", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"},
+                {"id": 18, "name": "Vana 9", "pin": "12", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "nanoId": "ValvesNano"}
             ],
             "sensors": [
                 {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "GatesNano", "status": "ONLINE"},
@@ -214,7 +221,7 @@ class DatabaseManager:
                 INSERT INTO cycle_history (recipeId, timestamp, duration, inputCount, outputCount, success)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (cycle_data['recipeId'], cycle_data['timestamp'], cycle_data['duration'], 
-                  cycle_data['inputCount'], cycle_data['outputCount'], cycle_data['success']))
+                  cycle_data['inputCount'], cycle_data['outputCount'], cycle_data['validationStatus'] == 'PASS'))
             conn.commit()
 
     def get_cycle_history(self, limit=50):
@@ -235,7 +242,7 @@ class DatabaseManager:
             row = cursor.fetchone()
             if row:
                 valves = json.loads(row[0])
-                for v in valves: v['connectionId'] = None
+                for v in valves: v['nanoId'] = None
                 cursor.execute("UPDATE system_state SET value = ? WHERE key = 'valves'", (json.dumps(valves),))
             
             # Sensörleri temizle

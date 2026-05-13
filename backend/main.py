@@ -72,7 +72,22 @@ async def handle_action(sid, data):
     elif action_type == 'ACKNOWLEDGE_FAULT':
         state.set_mode('BEKLEMEDE')
     elif action_type == 'TRIGGER_FAULT':
-        state.set_mode('ARIZA')
+        fault_type = payload.get('type', 'GENERIC')
+        faults = {
+            'VALVE_STUCK': ('ERR_VALF_SIKISIK', 'CRITICAL', 'Valf 3 tam kapanamadı.'),
+            'SENSOR_UNSTABLE': ('WARN_SENSOR_GURULTUSU', 'WARNING', 'Giriş sensörü okumaları yüksek oranda kararsız.'),
+            'COMM_LOSS': ('ERR_ILETISIM_KOPTU', 'CRITICAL', 'Nano 2 (Valfler) ile bağlantı kesildi.'),
+            'TIMEOUT_SETTLE': ('ERR_ZAMAN_ASIMI', 'CRITICAL', 'Dengelenme durumu izin verilen maksimum süreyi aştı.'),
+        }
+        code, severity, message = faults.get(fault_type, ('ERR_GENERIC', 'CRITICAL', 'Bilinmeyen hata.'))
+        new_alert = {
+            'id': f'ALR-{int(time.time())}', 'code': code, 'severity': severity,
+            'message': message, 'suggestion': 'Lütfen sistemi kontrol edin.',
+            'timestamp': time.time(), 'resolved': False
+        }
+        state.data["activeAlerts"].insert(0, new_alert)
+        if severity == 'CRITICAL':
+            state.set_mode('ARIZA')
     elif action_type == 'REQUEST_STOP_AFTER_CYCLE':
         state.data["stopAfterCycleRequested"] = True
 
@@ -268,9 +283,6 @@ async def handle_action(sid, data):
         extra = [g for g in state.data.get("extraGates", []) if g.get("id") != gate_id]
         state.data["extraGates"] = extra
         db.save_state("extraGates", extra)
-    elif action_type == 'RESET_COUNTER':
-        key = "inputCount" if payload.get("target") == 'input' else "outputCount"
-        state.data[key] = 0
 
     # --- Reçete ---
     elif action_type == 'ADD_RECIPE':
@@ -283,7 +295,15 @@ async def handle_action(sid, data):
         db.update_recipe(payload.get("id"), payload.get("updates", {}))
         state.data["recipes"] = db.get_recipes()
     elif action_type == 'SELECT_RECIPE':
-        state.data["config"]["recipeId"] = payload.get("id")
+        recipe_id = payload.get("id")
+        state.data["config"]["recipeId"] = recipe_id
+        recipe = next((r for r in state.data.get("recipes", []) if r["id"] == recipe_id), None)
+        if recipe:
+            state.data["config"]["volumeMl"] = recipe.get("volumeMl", 250)
+            state.data["config"]["targetCount"] = recipe.get("targetCount", 1)
+            state.data["config"]["fillTimeMs"] = recipe.get("fillTimeMs", 1000)
+            state.data["config"]["settlingTimeMs"] = recipe.get("settlingTimeMs", 500)
+            state.data["config"]["dripWaitTimeMs"] = recipe.get("dripWaitTimeMs", 500)
         db.save_state("config", state.data["config"])
 
     # --- Kullanıcı Prompt Yanıtı ---
@@ -362,8 +382,8 @@ async def broadcast_loop():
                     if n['id'] == 'ValvesNano':
                         valves_updated = False
                         for v in state.data.get("valves", []):
-                            if v.get("connectionId") != "ValvesNano":
-                                v["connectionId"] = "ValvesNano"
+                            if v.get("nanoId") != "ValvesNano":
+                                v["nanoId"] = "ValvesNano"
                                 valves_updated = True
                         if valves_updated:
                             print(f"[Auto-Config] ValvesNano eşleşti, valfler kaydedildi.")
@@ -396,7 +416,7 @@ async def broadcast_loop():
                             hw.apply_config(state.data["nanos"], state.data["sensors"])
         
         # --- Durum Temizliği (Frontend Çökme Koruması) ---
-        for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts"]:
+        for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts", "extraGates"]:
             if key not in state.data or state.data[key] is None:
                 state.data[key] = []
         
@@ -407,6 +427,9 @@ async def broadcast_loop():
             state.data["inputGate"] = {"name": "Giriş Kapısı", "isOpen": False}
         if "outputGate" not in state.data or state.data["outputGate"] is None:
             state.data["outputGate"] = {"name": "Çıkış Kapısı", "isOpen": False}
+        for key in ["promptData", "activePrompt", "isWashingDone", "isWashingRequired", "stopAfterCycleRequested"]:
+            if key not in state.data:
+                state.data[key] = None if key in ("activePrompt", "promptData") else False
         
         # Reçete koruması (eğer liste boşsa arayüz çökmesin diye hayali bir reçete göster)
         if not state.data["recipes"]:
@@ -437,7 +460,7 @@ async def startup_event():
                 
                 # Otonom Eşleştirme Yap
                 if target == 'ValvesNano':
-                    for v in state.data["valves"]: v["connectionId"] = "ValvesNano"
+                    for v in state.data["valves"]: v["nanoId"] = "ValvesNano"
                     db.save_state("valves", state.data["valves"])
                 else:
                     for s in state.data["sensors"]:

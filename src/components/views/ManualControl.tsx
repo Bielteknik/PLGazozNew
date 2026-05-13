@@ -3,7 +3,7 @@ import {
   Shield, Activity, Droplet, Target, ArrowDownUp, Save, Play, 
   Settings2, RefreshCw, Power, Timer, Info, Lock, Unlock, AlertCircle, Eye, Cpu, ArrowUp, ArrowDown
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { SystemData, SystemMode, Recipe, SensorState, GateState } from '../../types/system';
 

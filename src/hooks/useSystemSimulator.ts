@@ -657,15 +657,16 @@ export function useSystemSimulator() {
         timeout = setTimeout(() => {
            setData(p => {
               const duration = Date.now() - cycleStartTs;
-              const passport: any = {
-                 id: `PASS-${Date.now()}`,
-                 recipeName: p.recipes.find(r => r.id === p.config.recipeId)?.name || 'Bilinmeyen',
-                 timestamp: Date.now(),
-                 duration,
-                 inputCount: p.inputCount,
-                 outputCount: p.outputCount,
-                 status: isValid ? 'GEÇTİ' : 'KALDI'
-              };
+               const passport: CyclePassport = {
+                  id: `PASS-${Date.now()}`,
+                  recipeId: p.config.recipeId,
+                  timestamp: Date.now(),
+                  duration,
+                  inputCount: p.inputCount,
+                  outputCount: p.outputCount,
+                  validationStatus: isValid ? 'PASS' : 'FAIL',
+                  operatorId: 'OPERATOR'
+               };
 
               const newAlerts = isValid ? p.activeAlerts : [
                 {

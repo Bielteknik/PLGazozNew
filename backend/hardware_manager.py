@@ -76,14 +76,6 @@ class HardwareManager:
         conn = self.serial_conns.get(port)
         return conn is not None and conn.is_open
 
-    def control_valve(self, valve_id, state):
-        """ValvesNano üzerinden vana kontrolü yapar. valve_id: 10-18"""
-        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
-        if port:
-            state_str = "ON" if state else "OFF"
-            self.send_command(f"VALVE_CMD:{valve_id}:{state_str}", target_port=port)
-            return True
-        return False
 
     def send_command(self, cmd, target_port=None):
         """
@@ -154,28 +146,25 @@ class HardwareManager:
         """
         Dinamik kilit kontrolü. Sadece GatesNano kimlikli cihaza gider.
         """
-        # 1. Portu bul
         port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
-        
-        # 2. Eğer port bulunamadıysa bir kez daha aramayı dene (Hızlı tarama)
+
         if not port:
             print("[Hardware] GatesNano portu hafızada yok, yeniden aranıyor...")
             if self.find_and_connect("GatesNano"):
                 port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
 
         if port:
-                gate_id_upper = gate_id.upper()
-                pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
-                # Pozitif değer = Aç (ileri), negatif veya sıfır = Kapat (geri)
-                pos_val = int(position)
-                steps = 400 if pos_val > 0 else -400
-                full_cmd = f"{pin}:{steps}"
+            gate_id_upper = gate_id.upper()
+            pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
+            pos_val = int(position)
+            steps = 400 if pos_val > 0 else -400
+            full_cmd = f"{pin}:{steps}"
             print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)
             return True
         else:
             print(f"[Hardware] KRİTİK HATA: GatesNano sistemde bulunamadı!")
-        return False
+            return False
 
     def update(self):
         """Tüm açık portları tarar ve beklemedeki TÜM verileri hızlıca işler."""

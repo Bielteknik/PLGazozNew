@@ -93,18 +93,11 @@ export default function App() {
              setMode={setMode}
              toggleValve={toggleValve}
              operateGate={operateGate}
-             setValveMode={setValveMode}
-             setValvePulseDuration={setValvePulseDuration}
-             toggleGateEnabled={toggleGateEnabled}
-             onResetCounter={resetCounter}
-             onToggleHardwareStatus={toggleHardwareStatus}
              onUpdateRecipe={updateRecipe}
              onUpdateSystemGate={updateSystemGate}
              onUpdateSensor={updateSensor}
              testValvePulse={testValvePulse}
-             manualLogin={manualLogin}
-             manualToken={manualToken}
-             manualExpires={manualExpires}
+             sendNanoCommand={sendNanoCommand}
           />
         )}
         {currentTab === 'history' && (
