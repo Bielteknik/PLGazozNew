@@ -18,8 +18,8 @@ Format: `CMD:ACTION:PARAM1:PARAM2`
 | `GATE:ID:STEPS` | Kapı motoruna adım attırır. | `GATE:1:400` (Giriş Aç), `GATE:1:-400` (Giriş Kapat) |
 | `WASH:START:MS` | Otomatik yıkama döngüsünü başlatır. | `WASH:START:500` (500ms aralıklarla) |
 | `WASH:STOP` | Yıkamayı anında durdurur. | `WASH:STOP` |
-| `FLUSH:START` | Tahliye (Tüm valfler açık) başlatır. | `FLUSH:START` |
-| `FLUSH:STOP` | Tahliyeyi durdurur. | `FLUSH:STOP` |
+| `FLUSH:START` | Şişe Tahliyesi (Çıkış Kapısını Aç) başlatır. | `FLUSH:START` |
+| `FLUSH:STOP` | Şişe Tahliyesini durdurur (Kapıyı Kapat). | `FLUSH:STOP` |
 | `PING` | Bağlantı kontrolü. | `PING` |
 
 ---

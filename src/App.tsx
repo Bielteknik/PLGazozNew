@@ -154,6 +154,42 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Tahliye (Flush) Overlay */}
+      {data.mode === 'TAHLIYE' && (
+        <div className="fixed inset-0 z-[100] bg-[#0B0D11]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-24 h-24 bg-orange-600/20 rounded-full flex items-center justify-center mb-8">
+            <RefreshCw className="text-orange-500 animate-spin-slow" size={48} />
+          </div>
+          
+          <h1 className="text-4xl font-black text-white mb-4 tracking-tighter uppercase">Tahliye Başladı</h1>
+          <p className="text-gray-400 max-w-md mb-12">İçerideki şişeler tahliye ediliyor. Lütfen işlem bitene kadar bekleyin veya manuel olarak durdurun.</p>
+          
+          <div className="grid grid-cols-2 gap-8 mb-12 w-full max-w-lg">
+             <div className="bg-[#151921] border border-[#2D333F] rounded-2xl p-6">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Giren Şişe</div>
+                <div className="text-5xl font-mono font-bold text-white">{data.inputCount}</div>
+             </div>
+             <div className="bg-[#151921] border border-orange-500/30 rounded-2xl p-6 shadow-lg shadow-orange-500/5">
+                <div className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">Çıkan Şişe</div>
+                <div className="text-5xl font-mono font-bold text-white">{data.outputCount}</div>
+             </div>
+          </div>
+
+          <button 
+            onClick={() => setMode('BEKLEMEDE')}
+            className="group flex items-center gap-4 bg-red-600 hover:bg-red-500 text-white px-10 py-5 rounded-2xl font-black text-xl transition-all shadow-2xl shadow-red-500/20 active:scale-95"
+          >
+            <Power size={28} />
+            TAHLİYE İŞLEMİNİ DURDUR
+          </button>
+          
+          <div className="mt-12 flex items-center gap-2 text-xs text-gray-500">
+             <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+             Sensörler Aktif ve Sayım Yapılıyor
+          </div>
+        </div>
+      )}
     </div>
   );
 }

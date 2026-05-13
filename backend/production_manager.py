@@ -41,19 +41,30 @@ class ProductionManager:
         self.state.log("YIKAMA: Durduruldu.")
 
     async def run_flush_cycle(self):
-        """Tüm valfleri sürekli açık tutarak tahliye yapar."""
-        self.state.log("TAHLİYE: Tüm valfler sürekli açık.")
-        # Başlarken aç
-        for v in self.state.data.get("valves", []):
-            if v.get("enabled"):
-                self.hw.control_valve(v["id"], True)
+        """Hattaki şişeleri sayarak otomatik tahliye eder."""
+        self.state.log("TAHLİYE: Otomatik şişe boşaltma başlatıldı.")
+        
+        # 1. Tüm valfleri kapat
+        self.hw.all_off()
+        
+        # 2. Çıkış kapısını aç (G2 - 400 adım)
+        self.hw.send_command("G2:400")
         
         while self.state.data.get("mode") == "TAHLIYE":
+            in_count = self.state.data.get("inputCount", 0)
+            out_count = self.state.data.get("outputCount", 0)
+            
+            # Otomatik Durdurma: Giren ve Çıkan eşitse işlem bitmiştir
+            if in_count > 0 and in_count == out_count:
+                self.state.log(f"TAHLİYE: Tüm şişeler ({out_count}) çıktı. Otomatik kapatılıyor.")
+                break
+                
             await asyncio.sleep(0.5)
             
-        # Biterken veya mod değişirken kapat
-        for v in self.state.data.get("valves", []):
-            self.hw.control_valve(v["id"], False)
+        # 3. Çıkış kapısını geri kapat (G2 - -400 adım)
+        self.hw.send_command("G2:-400")
+        self.state.data["mode"] = "BEKLEMEDE" # Modu sıfırla
+        self.state.log("TAHLİYE: Tamamlandı veya Durduruldu.")
 
     async def start_cycle(self):
         """Yeni bir üretim döngüsü başlatır."""
