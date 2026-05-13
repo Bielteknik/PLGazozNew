@@ -29,6 +29,8 @@ interface ManualControlProps {
   onResetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onToggleHardwareStatus: (id: number | string) => void;
   onUpdateRecipe: (id: string, updates: Partial<Recipe>) => void;
+  onUpdateSystemGate: (target: 'inputGate' | 'outputGate', updates: any) => void;
+  onUpdateSensor: (id: string, updates: any) => void;
   testValvePulse: (id: number, duration: number) => void;
   manualLogin: (password: string) => void;
   manualToken: string | null;
@@ -46,16 +48,32 @@ export function ManualControl({
   onResetCounter,
   onToggleHardwareStatus,
   onUpdateRecipe,
+  onUpdateSystemGate,
+  onUpdateSensor,
   testValvePulse,
   manualLogin,
   manualToken,
   manualExpires
 }: ManualControlProps) {
   const [password, setPassword] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'visual' | 'recipe_test'>('visual');
+  const [selectedTab, setSelectedTab] = useState<'visual' | 'calibration'>('visual');
+  const [calSubTab, setCalSubTab] = useState<'valves' | 'gates' | 'sensors'>('valves');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>(data.config?.recipeId || '');
   const [selectedValveId, setSelectedValveId] = useState<number | null>(null);
   const [testDuration, setTestDuration] = useState<number>(1000);
+  
+  // Gate Calibration States
+  const [gateCal, setGateCal] = useState({
+     target: 'inputGate' as 'inputGate' | 'outputGate',
+     steps: 400,
+     direction: 1
+  });
+
+  // Sensor Calibration States
+  const [sensorCal, setSensorCal] = useState({
+     id: 'SENS-IN',
+     debounce: data.config?.inputDebounceMs || 200
+  });
 
   const selectedRecipe = data.recipes?.find(r => r.id === selectedRecipeId);
   
@@ -121,16 +139,16 @@ export function ManualControl({
                 selectedTab === 'visual' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
               )}
             >
-              GÖRSEL AKIŞ
+              AKIŞ TAKİBİ
             </button>
             <button
-              onClick={() => setSelectedTab('recipe_test')}
+              onClick={() => setSelectedTab('calibration')}
               className={cn(
                 "px-4 py-1.5 rounded-md text-[10px] font-bold transition-all uppercase tracking-wider",
-                selectedTab === 'recipe_test' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
+                selectedTab === 'calibration' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
               )}
             >
-              REÇETE TEST
+              KALİBRASYON LABORATUVARI
             </button>
           </div>
         </div>
@@ -303,134 +321,274 @@ export function ManualControl({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-12 gap-6 p-6 bg-[#0D1117] rounded-xl border border-gray-800 shadow-2xl flex-1">
-              <div className="col-span-12 lg:col-span-8 space-y-6">
-                <div className="bg-[#161B22] p-6 rounded-lg border border-gray-700">
-                  <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
-                    <div className="p-2 bg-blue-500/10 rounded-lg">
-                      <Shield className="text-blue-500" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white uppercase tracking-tight">Hassas Kalibrasyon Paneli</h3>
-                      <p className="text-[10px] text-gray-500">Seçili vana üzerinde reçete parametrelerini test edin.</p>
-                    </div>
-                  </div>
+            <div className="flex flex-col gap-6 flex-1">
+              {/* Calibration Content Area */}
+              <div className="grid grid-cols-12 gap-6 p-6 bg-[#0D1117] rounded-xl border border-gray-800 shadow-2xl flex-1">
+                <div className="col-span-12 lg:col-span-8 space-y-6">
+                  
+                  {calSubTab === 'valves' && (
+                    <div className="bg-[#161B22] p-6 rounded-lg border border-gray-700 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
+                        <div className="p-2 bg-blue-500/10 rounded-lg">
+                          <Activity className="text-blue-500" size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-tight">Hassas Valf Kalibrasyonu</h3>
+                          <p className="text-[10px] text-gray-500">Seçili vana üzerinde dolum sürelerini (ms) optimize edin.</p>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase">1. Reçete Seçimi</label>
-                      <select 
-                        value={selectedRecipeId}
-                        onChange={(e) => setSelectedRecipeId(e.target.value)}
-                        className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
-                      >
-                        {(data.recipes || []).map(r => (
-                          <option key={r.id} value={r.id}>{r.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-4">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase">2. Test Edilecek Vana</label>
-                      <select 
-                        value={selectedValveId || ''}
-                        onChange={(e) => setSelectedValveId(Number(e.target.value))}
-                        className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
-                      >
-                        {(data.valves || []).filter(v => v.enabled).map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.name || `Vana (Pin ${v.id})`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 pt-8 border-t border-gray-800">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                      <div className="grid grid-cols-2 gap-8">
                         <div className="space-y-4">
-                          <label className="block text-[10px] font-bold text-gray-400 uppercase">3. Test Süresi (Milisaniye)</label>
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {[500, 1000, 1500, 2000, 3000].map(ms => (
-                              <button 
-                                key={ms}
-                                onClick={() => setTestDuration(ms)}
-                                className={cn(
-                                  "px-2 py-1 rounded text-[9px] font-bold transition-all border",
-                                  testDuration === ms 
-                                    ? "bg-blue-600 border-blue-400 text-white" 
-                                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
-                                )}
-                              >
-                                {ms}ms
-                              </button>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">1. Reçete Seçimi</label>
+                          <select 
+                            value={selectedRecipeId}
+                            onChange={(e) => setSelectedRecipeId(e.target.value)}
+                            className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
+                          >
+                            {(data.recipes || []).map(r => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
                             ))}
-                          </div>
-                          <div className="relative">
+                          </select>
+                        </div>
+
+                        <div className="space-y-4">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase">2. Test Edilecek Vana</label>
+                          <select 
+                            value={selectedValveId || ''}
+                            onChange={(e) => setSelectedValveId(Number(e.target.value))}
+                            className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
+                          >
+                            {(data.valves || []).filter(v => v.enabled).map(v => (
+                              <option key={v.id} value={v.id}>
+                                {v.name || `Vana (Pin ${v.id})`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="mt-8 pt-8 border-t border-gray-800">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                            <div className="space-y-4">
+                              <label className="block text-[10px] font-bold text-gray-400 uppercase">3. Test Süresi (Milisaniye)</label>
+                              <div className="flex flex-wrap gap-2 mb-3">
+                                {[500, 1000, 1500, 2000, 3000].map(ms => (
+                                  <button 
+                                    key={ms}
+                                    onClick={() => setTestDuration(ms)}
+                                    className={cn(
+                                      "px-2 py-1 rounded text-[9px] font-bold transition-all border",
+                                      testDuration === ms ? "bg-blue-600 border-blue-400 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
+                                    )}
+                                  >
+                                    {ms}ms
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="relative">
+                                <input 
+                                  type="number"
+                                  value={testDuration}
+                                  onChange={(e) => setTestDuration(Number(e.target.value))}
+                                  className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-4 text-2xl font-mono text-blue-400 focus:border-blue-500 outline-none"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-bold">MS</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-3 h-[64px]">
+                              <button 
+                                disabled={!selectedValveId}
+                                onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
+                                className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+                              >
+                                <Play size={20} />
+                                TESTİ BAŞLAT
+                              </button>
+                              
+                              <button 
+                                disabled={!selectedRecipeId || testDuration === selectedRecipe?.fillTimeMs}
+                                onClick={() => {
+                                  if (selectedRecipeId) {
+                                    onUpdateRecipe(selectedRecipeId, { fillTimeMs: testDuration });
+                                  }
+                                }}
+                                className="px-6 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800/50 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2 active:scale-95 border border-emerald-500/20"
+                              >
+                                <RefreshCw size={18} />
+                                REÇETEYİ GÜNCELLE
+                              </button>
+                            </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {calSubTab === 'gates' && (
+                    <div className="bg-[#161B22] p-6 rounded-lg border border-gray-700 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
+                        <div className="p-2 bg-orange-500/10 rounded-lg">
+                          <ArrowDownUp className="text-orange-500" size={20} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-tight">Kapı Kalibrasyon Merkezi</h3>
+                          <p className="text-[10px] text-gray-500">Step motor adım sayılarını ve yönlerini belirleyin.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase">1. Hedef Kapı</label>
+                            <div className="flex gap-2">
+                               <button 
+                                  onClick={() => setGateCal(prev => ({ ...prev, target: 'inputGate' }))}
+                                  className={cn("flex-1 p-3 rounded-lg border text-xs font-bold transition-all", gateCal.target === 'inputGate' ? "bg-orange-500/20 border-orange-500 text-orange-500" : "bg-gray-800 border-gray-700 text-gray-500")}
+                               >
+                                  GİRİŞ KAPISI
+                               </button>
+                               <button 
+                                  onClick={() => setGateCal(prev => ({ ...prev, target: 'outputGate' }))}
+                                  className={cn("flex-1 p-3 rounded-lg border text-xs font-bold transition-all", gateCal.target === 'outputGate' ? "bg-orange-500/20 border-orange-500 text-orange-500" : "bg-gray-800 border-gray-700 text-gray-500")}
+                               >
+                                  ÇIKIŞ KAPISI
+                               </button>
+                            </div>
+                         </div>
+                         
+                         <div className="space-y-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase">2. Kalibrasyon Adımı</label>
                             <input 
                               type="number"
-                              value={testDuration}
-                              onChange={(e) => setTestDuration(Number(e.target.value))}
-                              className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-4 text-2xl font-mono text-blue-400 focus:border-blue-500 outline-none"
+                              value={gateCal.steps}
+                              onChange={(e) => setGateCal(prev => ({ ...prev, steps: Number(e.target.value) }))}
+                              className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white outline-none"
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-bold">MS</span>
-                          </div>
+                         </div>
+                      </div>
+
+                      <div className="mt-8 pt-8 border-t border-gray-800 grid grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase">3. Manuel Hareket Testi</label>
+                            <div className="grid grid-cols-2 gap-3">
+                               <button 
+                                  onClick={() => operateGate(gateCal.target, -gateCal.steps)}
+                                  className="p-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold text-xs flex flex-col items-center gap-2 border border-gray-700 active:scale-95 transition-all"
+                               >
+                                  <ArrowUp size={16} />
+                                  KAPIYI KAPAT
+                               </button>
+                               <button 
+                                  onClick={() => operateGate(gateCal.target, gateCal.steps)}
+                                  className="p-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold text-xs flex flex-col items-center gap-2 border border-gray-700 active:scale-95 transition-all"
+                               >
+                                  <ArrowDown size={16} />
+                                  KAPIYI AÇ
+                               </button>
+                            </div>
+                         </div>
+
+                         <div className="flex items-end pb-1">
+                            <button 
+                               onClick={() => {
+                                  const currentGate = data[gateCal.target];
+                                  onUpdateSystemGate(gateCal.target, { ...currentGate, position: gateCal.steps });
+                               }}
+                               className="w-full h-[58px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                            >
+                               <RefreshCw size={18} />
+                               ADIM SAYISINI KAYDET
+                            </button>
+                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {calSubTab === 'sensors' && (
+                    <div className="bg-[#161B22] p-6 rounded-lg border border-gray-700 animate-in fade-in slide-in-from-bottom-2">
+                       <div className="flex items-center gap-3 mb-6 border-b border-gray-800 pb-4">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                          <Eye className="text-emerald-500" size={20} />
                         </div>
-                        
-                        <div className="flex gap-3 h-[64px]">
-                          <button 
-                            disabled={!selectedValveId}
-                            onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
-                            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
-                          >
-                            <Play size={20} />
-                            TESTİ BAŞLAT
-                          </button>
-                          
-                          <button 
-                            disabled={!selectedRecipeId || testDuration === selectedRecipe?.fillTimeMs}
-                            onClick={() => {
-                              if (selectedRecipeId) {
-                                onUpdateRecipe(selectedRecipeId, { fillTimeMs: testDuration });
-                              }
-                            }}
-                            className="px-6 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800/50 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2 active:scale-95 border border-emerald-500/20"
-                          >
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-tight">Sensör Hassasiyet Ayarı</h3>
+                          <p className="text-[10px] text-gray-500">Lazer sensörlerin okuma gecikmelerini (Debounce) optimize edin.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase">1. Sensör Seçimi</label>
+                            <select 
+                               value={sensorCal.id}
+                               onChange={(e) => setSensorCal(prev => ({ ...prev, id: e.target.value }))}
+                               className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white outline-none"
+                            >
+                               {data.sensors.map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                               ))}
+                            </select>
+                         </div>
+                         
+                         <div className="space-y-4">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase">2. Gecikme Süresi (Debounce)</label>
+                            <div className="relative">
+                               <input 
+                                 type="number"
+                                 value={sensorCal.debounce}
+                                 onChange={(e) => setSensorCal(prev => ({ ...prev, debounce: Number(e.target.value) }))}
+                                 className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white outline-none"
+                               />
+                               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-[10px]">MS</span>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="mt-8 pt-8 border-t border-gray-800 flex justify-end">
+                         <button 
+                            onClick={() => onUpdateSensor(sensorCal.id, { debounce: sensorCal.debounce })}
+                            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                         >
                             <RefreshCw size={18} />
-                            REÇETEYİ GÜNCELLE
-                          </button>
-                        </div>
-                     </div>
-                  </div>
+                            HASSASİYETİ KAYDET
+                         </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-                <div className="bg-[#161B22] p-5 rounded-lg border border-gray-700 flex-1">
+                {/* Right Side Info Panel */}
+                <div className="col-span-12 lg:col-span-4 space-y-4">
+                  <div className="bg-[#161B22] p-5 rounded-lg border border-gray-700">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
-                      <Target size={12} className="text-orange-500" /> Kalibrasyon Notları
+                      <Target size={12} className="text-orange-500" /> Kalibrasyon Kılavuzu
                     </h4>
-                    <ul className="space-y-3">
-                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
-                        Test süresi varsayılan olarak seçili reçeteden gelir.
-                      </li>
-                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
-                        ML değerini tutturmak için süreyi buradan optimize edip reçeteye kaydedebilirsiniz.
-                      </li>
-                      <li className="flex gap-3 text-[10px] text-gray-300 leading-relaxed">
-                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1 shrink-0" />
-                        Test sırasında kapılar kapalı kalır, sadece sıvı akışı kontrol edilir.
-                      </li>
-                    </ul>
-                </div>
+                    
+                    {calSubTab === 'valves' && (
+                      <div className="space-y-3 animate-in fade-in">
+                        <p className="text-[9px] text-gray-400 leading-relaxed italic">1000ms dolum yapıp tartın. Eğer 250ml olması gereken şişede 240ml varsa süreyi %4 artırın.</p>
+                      </div>
+                    )}
+                    
+                    {calSubTab === 'gates' && (
+                      <div className="space-y-3 animate-in fade-in">
+                        <p className="text-[9px] text-gray-400 leading-relaxed italic">Kapıyı önce manuel butonlarla tam açık pozisyona getirin. Adım sayısını not edip "Kaydet" deyin.</p>
+                      </div>
+                    )}
 
-                <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg">
-                    <div className="text-[10px] font-bold text-blue-400 mb-2">HIZLI BİLGİ</div>
-                    <p className="text-[9px] text-blue-300/60 italic leading-relaxed">
-                      1000ms (1 saniye) test yapıp biriken sıvıyı tartarak hassas ML/MS oranınızı hesaplayabilirsiniz.
+                    {calSubTab === 'sensors' && (
+                      <div className="space-y-3 animate-in fade-in">
+                        <p className="text-[9px] text-gray-400 leading-relaxed italic">Şişeler çok hızlı geçiyorsa debounce süresini düşürün (örn: 50ms). Eğer tek şişeyi 2 kere sayıyorsa artırın.</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+                    <div className="text-[10px] font-bold text-blue-400 mb-2 uppercase tracking-widest">Sistem Notu</div>
+                    <p className="text-[9px] text-blue-300/60 leading-relaxed">
+                      Kalibrasyon sırasında makineyi manuel modda tutun. Yapılan tüm değişiklikler anında veritabanına işlenir.
                     </p>
+                  </div>
                 </div>
               </div>
             </div>

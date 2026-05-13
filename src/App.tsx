@@ -99,6 +99,8 @@ export default function App() {
              onResetCounter={resetCounter}
              onToggleHardwareStatus={toggleHardwareStatus}
              onUpdateRecipe={updateRecipe}
+             onUpdateSystemGate={updateSystemGate}
+             onUpdateSensor={updateSensor}
              testValvePulse={testValvePulse}
              manualLogin={manualLogin}
              manualToken={manualToken}
