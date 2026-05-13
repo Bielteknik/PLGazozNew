@@ -290,9 +290,6 @@ class HardwareManager:
                 del self.gpio_h
         except:
             pass
-                delattr(self, 'gpio_h')
-        except:
-            pass
 
     def setup_gpio(self, input_pin=17, output_pin=27, sensors=None):
         """Raspberry Pi GPIO pinlerini sensörler için hazırlar."""
