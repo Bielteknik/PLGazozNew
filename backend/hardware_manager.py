@@ -283,23 +283,13 @@ class HardwareManager:
     def cleanup_gpio(self):
         """GPIO kaynaklarını güvenli bir şekilde serbest bırakır."""
         self.polling_active = False
-        
-        # GpioZero nesnelerini kapat
-        if hasattr(self, 'sens_in_dev'):
-            try: self.sens_in_dev.close()
-            except: pass
-            del self.sens_in_dev
-
-        if hasattr(self, 'sens_out_dev'):
-            try: self.sens_out_dev.close()
-            except: pass
-            del self.sens_out_dev
-            
         try:
             import lgpio
             if hasattr(self, 'gpio_h'):
                 lgpio.gpiochip_close(self.gpio_h)
                 del self.gpio_h
+        except:
+            pass
                 delattr(self, 'gpio_h')
         except:
             pass
@@ -309,9 +299,10 @@ class HardwareManager:
         self.cleanup_gpio() 
         self.sensor_config = sensors or []
         try:
-            from gpiozero import DigitalInputDevice
-            
-            # Varsayılanlar (GPIO numaraları)
+            import lgpio
+            import threading
+            self.gpio_h = lgpio.gpiochip_open(0)
+
             in_pin = input_pin
             out_pin = output_pin
 
@@ -322,19 +313,37 @@ class HardwareManager:
                     if s.get("type") == "INPUT": in_pin = pin
                     else: out_pin = pin
 
-            # GPIO Nesnelerini oluştur (Interrupt tabanlı)
-            self.sens_in_dev = DigitalInputDevice(in_pin, pull_up=True, bounce_time=0.01) # 10ms debounce
-            self.sens_out_dev = DigitalInputDevice(out_pin, pull_up=True, bounce_time=0.01)
-
-            # Callback'leri bağla
-            self.sens_in_dev.when_activated = lambda: self._handle_input("RASPI")
-            self.sens_out_dev.when_activated = lambda: self._handle_output("RASPI")
+            lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
+            lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
 
             self.polling_active = True
-            print(f"[GPIO] İzleme başladı (GpioZero/Interrupt Mod - Pi 5, Pins: {in_pin}, {out_pin})")
+            
+            def poll_loop():
+                last_in = 1
+                last_out = 1
+                while self.polling_active:
+                    try:
+                        # Giriş Sensörü
+                        in_val = lgpio.gpio_read(self.gpio_h, in_pin)
+                        if in_val == 0 and last_in == 1:
+                            self._handle_input("RASPI")
+                        last_in = in_val
+                        
+                        # Çıkış Sensörü
+                        out_val = lgpio.gpio_read(self.gpio_h, out_pin)
+                        if out_val == 0 and last_out == 1:
+                            self._handle_output("RASPI")
+                        last_out = out_val
+
+                        time.sleep(0.01) # 10ms (Yüksek hız)
+                    except: break
+
+            self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
+            self.poll_thread.start()
+            print(f"[GPIO] İzleme başladı (Hızlı Polling Mod - Pi 5)")
 
         except Exception as e:
-            print(f"[GPIO] Kurulum Hatası (GpioZero): {e}")
+            print(f"[GPIO] Kurulum Hatası (LGPIO Polling): {e}")
 
     def _handle_input(self, source):
         print(f">>> GİRİŞ SENSÖRÜ ({source}) TETİKLENDİ")
