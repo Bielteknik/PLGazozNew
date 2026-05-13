@@ -24,7 +24,7 @@ class HardwareManager:
         filtered = [p for p in ports if "ttyUSB" in p or "ttyACM" in p]
         return sorted(filtered)
 
-    def connect_to_port(self, port, baudrate=115200):
+    def connect_to_port(self, port, baudrate=9600):
         """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
         try:
             if port in self.serial_conns:
@@ -330,10 +330,6 @@ class HardwareManager:
             lgpio.gpio_claim_input(self.gpio_h, in_pin, lgpio.SET_PULL_UP)
             lgpio.gpio_claim_input(self.gpio_h, out_pin, lgpio.SET_PULL_UP)
             
-            # 10ms debounce at hardware level
-            lgpio.gpio_set_debounce_period(self.gpio_h, in_pin, 10000) 
-            lgpio.gpio_set_debounce_period(self.gpio_h, out_pin, 10000)
-
             lgpio.gpio_set_alert_func(self.gpio_h, in_pin, on_alert)
             lgpio.gpio_set_alert_func(self.gpio_h, out_pin, on_alert)
 
