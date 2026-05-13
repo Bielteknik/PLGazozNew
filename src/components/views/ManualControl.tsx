@@ -12,7 +12,11 @@ import {
   RefreshCw, 
   Timer, 
   Power,
-  Play
+  Play,
+  Activity,
+  ArrowDownUp,
+  Eye,
+  Settings2
 } from 'lucide-react';
 import { SystemData, SystemMode, Recipe } from '../../types/system';
 import { cn } from '../../lib/utils';
@@ -148,7 +152,7 @@ export function ManualControl({
                 selectedTab === 'calibration' ? "bg-[#F97316] text-white shadow-lg" : "text-gray-500 hover:text-gray-300"
               )}
             >
-              KALİBRASYON LABORATUVARI
+              KALİBRASYON
             </button>
           </div>
         </div>
