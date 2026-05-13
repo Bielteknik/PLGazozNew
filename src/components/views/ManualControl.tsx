@@ -28,6 +28,7 @@ interface ManualControlProps {
   toggleGateEnabled: (target: 'inputGate' | 'outputGate') => void;
   onResetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onToggleHardwareStatus: (id: number | string) => void;
+  onUpdateRecipe: (id: string, updates: Partial<Recipe>) => void;
   testValvePulse: (id: number, duration: number) => void;
   manualLogin: (password: string) => void;
   manualToken: string | null;
@@ -44,6 +45,7 @@ export function ManualControl({
   toggleGateEnabled, 
   onResetCounter,
   onToggleHardwareStatus,
+  onUpdateRecipe,
   testValvePulse,
   manualLogin,
   manualToken,
@@ -343,9 +345,25 @@ export function ManualControl({
                   </div>
 
                   <div className="mt-8 pt-8 border-t border-gray-800">
-                    <div className="flex items-end gap-6">
-                        <div className="flex-1 space-y-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+                        <div className="space-y-4">
                           <label className="block text-[10px] font-bold text-gray-400 uppercase">3. Test Süresi (Milisaniye)</label>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {[500, 1000, 1500, 2000, 3000].map(ms => (
+                              <button 
+                                key={ms}
+                                onClick={() => setTestDuration(ms)}
+                                className={cn(
+                                  "px-2 py-1 rounded text-[9px] font-bold transition-all border",
+                                  testDuration === ms 
+                                    ? "bg-blue-600 border-blue-400 text-white" 
+                                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
+                                )}
+                              >
+                                {ms}ms
+                              </button>
+                            ))}
+                          </div>
                           <div className="relative">
                             <input 
                               type="number"
@@ -357,15 +375,30 @@ export function ManualControl({
                           </div>
                         </div>
                         
-                        <button 
-                          disabled={!selectedValveId}
-                          onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
-                          className="h-[64px] px-8 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center gap-3 active:scale-95"
-                        >
-                          <Play size={20} />
-                          TESTİ BAŞLAT
-                        </button>
-                    </div>
+                        <div className="flex gap-3 h-[64px]">
+                          <button 
+                            disabled={!selectedValveId}
+                            onClick={() => selectedValveId && testValvePulse(selectedValveId, testDuration)}
+                            className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+                          >
+                            <Play size={20} />
+                            TESTİ BAŞLAT
+                          </button>
+                          
+                          <button 
+                            disabled={!selectedRecipeId || testDuration === selectedRecipe?.fillTimeMs}
+                            onClick={() => {
+                              if (selectedRecipeId) {
+                                onUpdateRecipe(selectedRecipeId, { fillTimeMs: testDuration });
+                              }
+                            }}
+                            className="px-6 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800/50 disabled:text-gray-600 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2 active:scale-95 border border-emerald-500/20"
+                          >
+                            <RefreshCw size={18} />
+                            REÇETEYİ GÜNCELLE
+                          </button>
+                        </div>
+                     </div>
                   </div>
                 </div>
               </div>

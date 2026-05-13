@@ -97,6 +97,7 @@ export default function App() {
              toggleGateEnabled={toggleGateEnabled}
              onResetCounter={resetCounter}
              onToggleHardwareStatus={toggleHardwareStatus}
+             onUpdateRecipe={updateRecipe}
              testValvePulse={testValvePulse}
              manualLogin={manualLogin}
              manualToken={manualToken}
