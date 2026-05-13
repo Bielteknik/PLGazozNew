@@ -5,20 +5,24 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
-import { useSocketState } from '../../hooks/useSocketState';
+import { SystemData, SystemMode, Recipe, SensorState, GateState } from '../../types/system';
 
-export const ManualControl: React.FC = () => {
-  const { 
-    data, 
-    setMode, 
-    operateGate, 
-    toggleValve, 
-    testValvePulse, 
-    updateRecipe,
-    updateSystemGate,
-    updateSensor,
-    sendNanoCommand
-  } = useSocketState();
+interface ManualControlProps {
+  data: SystemData;
+  setMode: (mode: SystemMode) => void;
+  operateGate: (target: 'inputGate' | 'outputGate', position: number) => void;
+  toggleValve: (id: number) => void;
+  testValvePulse: (id: number, duration: number) => void;
+  updateRecipe: (id: string, updates: Partial<Recipe>) => void;
+  updateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<GateState>) => void;
+  updateSensor: (id: string, updates: Partial<SensorState>) => void;
+  sendNanoCommand: (nanoId: string, cmd: string) => void;
+}
+
+export const ManualControl: React.FC<ManualControlProps> = ({ 
+  data, setMode, operateGate, toggleValve, testValvePulse,
+  updateRecipe, updateSystemGate, updateSensor, sendNanoCommand
+}) => {
   
   const [password, setPassword] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);

@@ -9,7 +9,6 @@ class HardwareManager:
         self.serial_conns = {}  # {port: SerialInstance}
         self.port_to_id_map = {} # {port: 'GatesNano' or 'ValvesNano'}
         self.on_input_detected = None
-        self.on_output_detected = None
         self.sensor_config = []
         self.polling_active = False
         self.device_status = {
@@ -24,7 +23,7 @@ class HardwareManager:
         filtered = [p for p in ports if "ttyUSB" in p or "ttyACM" in p]
         return sorted(filtered)
 
-    def connect_to_port(self, port, baudrate=9600):
+    def connect_to_port(self, port, baudrate=115200):
         """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
         try:
             if port in self.serial_conns:
@@ -83,19 +82,6 @@ class HardwareManager:
         if port:
             state_str = "ON" if state else "OFF"
             self.send_command(f"VALVE_CMD:{valve_id}:{state_str}", target_port=port)
-            return True
-        return False
-
-    def control_gate(self, pin, position):
-        """GatesNano üzerinden kilit motoru kontrolü yapar."""
-        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
-        if port:
-            # Map frontend IDs to Arduino commands
-            cmd_prefix = pin
-            if pin == "inputGate": cmd_prefix = "G1"
-            elif pin == "outputGate": cmd_prefix = "G2"
-            
-            self.send_command(f"{cmd_prefix}:{position}", target_port=port)
             return True
         return False
 
@@ -178,11 +164,12 @@ class HardwareManager:
                 port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "GatesNano"), None)
 
         if port:
-            gate_id_upper = gate_id.upper()
-            pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
-            # 400 adım ileri (1) = Aç, 400 adım geri (-400) = Kilitler
-            steps = 400 if int(position) == 1 else -400
-            full_cmd = f"{pin}:{steps}"
+                gate_id_upper = gate_id.upper()
+                pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
+                # Pozitif değer = Aç (ileri), negatif veya sıfır = Kapat (geri)
+                pos_val = int(position)
+                steps = 400 if pos_val > 0 else -400
+                full_cmd = f"{pin}:{steps}"
             print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)
             return True
@@ -278,7 +265,8 @@ class HardwareManager:
         self.control_valve(pin, state)
 
     def all_off(self):
-        self.send_command("VALVE_CMD:ALL:OFF")
+        port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
+        self.send_command("VALVE_CMD:ALL:OFF", target_port=port)
 
     def cleanup_gpio(self):
         """GPIO kaynaklarını güvenli bir şekilde serbest bırakır."""

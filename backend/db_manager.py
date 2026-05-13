@@ -127,23 +127,23 @@ class DatabaseManager:
                 "washValveIntervalMs": 2000
             },
             "valves": [
-                {"id": 2, "name": "Vana 1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 3, "name": "Vana 2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 4, "name": "Vana 3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 5, "name": "Vana 4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 6, "name": "Vana 5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 7, "name": "Vana 6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 8, "name": "Vana 7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 9, "name": "Vana 8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 10, "name": "Vana 9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
+                {"id": 10, "name": "Vana 1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 11, "name": "Vana 2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 12, "name": "Vana 3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 13, "name": "Vana 4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 14, "name": "Vana 5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 15, "name": "Vana 6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 16, "name": "Vana 7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 17, "name": "Vana 8", "pin": "11", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 18, "name": "Vana 9", "pin": "12", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
             ],
             "sensors": [
                 {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "GatesNano", "status": "ONLINE"},
                 {"id": "SENS-OUT", "name": "Çıkış Lazeri", "type": "OUTPUT", "pin": "27", "enabled": True, "device": "GatesNano", "status": "ONLINE"}
             ],
             "nanos": [
-                {"id": "GatesNano", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600},
-                {"id": "ValvesNano", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 9600}
+                {"id": "GatesNano", "name": "Kilit ve Sensörler", "port": "/dev/ttyUSB0", "status": "OFFLINE", "pingMs": 0, "baudRate": 115200},
+                {"id": "ValvesNano", "name": "Valf Kontrol", "port": "/dev/ttyUSB1", "status": "OFFLINE", "pingMs": 0, "baudRate": 115200}
             ],
             "inputGate": {"id": "G-IN", "name": "Giriş Kapısı", "pin": "G1", "stepPin": 2, "dirPin": 5, "enPin": 8, "isOpen": False, "nanoId": "GatesNano", "enabled": True, "position": 0},
             "outputGate": {"id": "G-OUT", "name": "Çıkış Kapısı", "pin": "G2", "stepPin": 3, "dirPin": 6, "enPin": 8, "isOpen": False, "nanoId": "GatesNano", "enabled": True, "position": 0},

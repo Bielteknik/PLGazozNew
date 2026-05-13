@@ -521,6 +521,59 @@ export function Dashboard({
                </motion.div>
             </motion.div>
          )}
+
+         {data.activePrompt === 'COUNT_MISMATCH' && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+            >
+               <motion.div 
+                 initial={{ scale: 0.9, y: 20 }}
+                 animate={{ scale: 1, y: 0 }}
+                 className="bg-[#151921] border-2 border-amber-500 rounded-xl max-w-lg w-full p-8 shadow-[0_0_50px_rgba(245,158,11,0.3)]"
+               >
+                  <div className="flex flex-col items-center text-center">
+                     <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mb-6">
+                        <AlertTriangle size={40} className="text-amber-400" />
+                     </div>
+                     <h3 className="text-2xl font-bold text-white mb-2">Şişe Sayıları Eşit Değil</h3>
+                     <p className="text-gray-400 text-lg mb-6 leading-relaxed">
+                        Giren şişe sayısı ile çıkan şişe sayısı uyuşmuyor.
+                     </p>
+                     <div className="grid grid-cols-2 gap-6 mb-8 w-full max-w-xs">
+                        <div className="bg-[#0D1016] border border-[#1F2937] rounded-xl p-4 text-center">
+                           <div className="text-[10px] text-gray-500 font-bold uppercase mb-1">Giren</div>
+                           <div className="text-4xl font-mono font-bold text-[#F97316]">{data.promptData?.inputCount ?? 0}</div>
+                        </div>
+                        <div className="bg-[#0D1016] border border-[#1F2937] rounded-xl p-4 text-center">
+                           <div className="text-[10px] text-gray-500 font-bold uppercase mb-1">Çıkan</div>
+                           <div className="text-4xl font-mono font-bold text-emerald-400">{data.promptData?.outputCount ?? 0}</div>
+                        </div>
+                     </div>
+                     <p className="text-gray-500 text-md mb-6">Yine de yeni döngü başlasın mı?</p>
+                     
+                     <div className="grid grid-cols-2 gap-4 w-full">
+                        <button 
+                          onClick={() => onAnswerPrompt(true)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-lg font-bold text-lg transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"
+                        >
+                           <Target size={24} />
+                           EVET, BAŞLAT
+                        </button>
+                        <button 
+                          onClick={() => onAnswerPrompt(false)}
+                          className="bg-red-600 hover:bg-red-500 text-white py-5 rounded-lg font-bold text-lg transition-colors shadow-lg flex flex-col items-center gap-2 active:scale-95"
+                        >
+                           <ShieldAlert size={24} />
+                           HAYIR, DURDUR
+                        </button>
+                     </div>
+                  </div>
+               </motion.div>
+            </motion.div>
+         )}
       </AnimatePresence>
 
     </div>

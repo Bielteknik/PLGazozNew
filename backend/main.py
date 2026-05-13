@@ -26,9 +26,6 @@ hw = HardwareManager()
 state = StateManager(db, hw)
 prod = ProductionManager(state, hw, db)
 
-# Donanım başlat (Database'deki en güncel yapılandırmayı uygula)
-hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
-
 # Arayüze güvenli veri gönderme (Thread-Safe)
 def safe_emit():
     if main_loop:
@@ -114,8 +111,27 @@ async def handle_action(sid, data):
     elif action_type == 'TEST_VALVE_PULSE':
         valve_id = payload.get('id')
         duration = payload.get('duration', 1000)
-        # Background task
         asyncio.create_task(hw.pulse_valve(valve_id, duration))
+
+    elif action_type == 'TOGGLE_HARDWARE_STATUS':
+        v_id = payload.get('id')
+        valves = state.data.get("valves", [])
+        for v in valves:
+            if v["id"] == v_id:
+                v["enabled"] = not v.get("enabled", True)
+                v["isOpen"] = False
+        state.data["valves"] = valves
+        db.save_state("valves", valves)
+
+    elif action_type == 'SET_VALVE_PULSE':
+        pulse_id = payload.get('id')
+        duration = payload.get('duration', 1000)
+        valves = state.data.get("valves", [])
+        for v in valves:
+            if v["id"] == pulse_id:
+                v["pulseDuration"] = duration
+        state.data["valves"] = valves
+        db.save_state("valves", valves)
 
     # --- Sayaç Yönetimi ---
     elif action_type == 'MANAGE_COUNTER':
@@ -138,6 +154,16 @@ async def handle_action(sid, data):
         gate_id = payload.get('id') or payload.get('target')
         pos = payload.get('position') # 1=Aç/İleri, 0=Kapat/Geri
         hw.control_gate(gate_id, pos)
+    elif action_type == 'OPERATE_EXTRA_GATE':
+        gate_id = payload.get('id')
+        pos = payload.get('position', 1)
+        extra_gates = state.data.get("extraGates", [])
+        for g in extra_gates:
+            if g.get("id") == gate_id and g.get("enabled"):
+                g["isOpen"] = pos > 0
+                g["position"] = pos
+        state.data["extraGates"] = extra_gates
+        db.save_state("extraGates", extra_gates)
 
     # --- Sensör ---
     elif action_type == 'ADD_SENSOR':
@@ -208,10 +234,40 @@ async def handle_action(sid, data):
             state.data[target].update(payload.get("updates", {}))
             db.save_state(target, state.data[target])
     elif action_type == 'TOGGLE_GATE_ENABLED':
-        target = payload.get("target") or payload.get("id")
-        if target and target in state.data:
-            state.data[target]["enabled"] = not state.data[target].get("enabled", True)
-            db.save_state(target, state.data[target])
+        gate_id = payload.get("target") or payload.get("id")
+        if gate_id in state.data:
+            state.data[gate_id]["enabled"] = not state.data[gate_id].get("enabled", True)
+            db.save_state(gate_id, state.data[gate_id])
+        # Extra gate toggle
+        extra = state.data.get("extraGates", [])
+        for g in extra:
+            if g.get("id") == gate_id:
+                g["enabled"] = not g.get("enabled", True)
+                if not g["enabled"]:
+                    g["isOpen"] = False
+                    g["position"] = 0
+        state.data["extraGates"] = extra
+        db.save_state("extraGates", extra)
+    elif action_type == 'UPDATE_GATE':
+        gate_id = payload.get("id")
+        updates = payload.get("updates", {})
+        extra = state.data.get("extraGates", [])
+        for g in extra:
+            if g.get("id") == gate_id:
+                g.update(updates)
+        state.data["extraGates"] = extra
+        db.save_state("extraGates", extra)
+    elif action_type == 'ADD_GATE':
+        gate = payload.get("gate", {})
+        extra = state.data.get("extraGates", [])
+        extra.append(gate)
+        state.data["extraGates"] = extra
+        db.save_state("extraGates", extra)
+    elif action_type == 'REMOVE_GATE':
+        gate_id = payload.get("id")
+        extra = [g for g in state.data.get("extraGates", []) if g.get("id") != gate_id]
+        state.data["extraGates"] = extra
+        db.save_state("extraGates", extra)
     elif action_type == 'RESET_COUNTER':
         key = "inputCount" if payload.get("target") == 'input' else "outputCount"
         state.data[key] = 0
@@ -229,6 +285,19 @@ async def handle_action(sid, data):
     elif action_type == 'SELECT_RECIPE':
         state.data["config"]["recipeId"] = payload.get("id")
         db.save_state("config", state.data["config"])
+
+    # --- Kullanıcı Prompt Yanıtı ---
+    elif action_type == 'ANSWER_PROMPT':
+        answer = payload.get('answer', False)
+        prompt_type = state.data.get("activePrompt")
+        if prompt_type == "COUNT_MISMATCH":
+            if answer:
+                state.data["activePrompt"] = None
+                state.log("Kullanıcı onayı: sayı farkına rağmen döngü devam ediyor.")
+            else:
+                state.data["activePrompt"] = None
+                state.data["mode"] = "BEKLEMEDE"
+                state.log("Kullanıcı reddetti. Sistem bekleme moduna alındı.")
 
     # --- Konfig ---
     elif action_type == 'UPDATE_CONFIG':
@@ -302,11 +371,12 @@ async def broadcast_loop():
                     
                     elif n['id'] == 'GatesNano':
                         gates_updated = False
-                        # Sensörleri Raspberry Pi moduna zorla (Kullanıcı isteği)
+                        # Sensörleri Raspberry Pi moduna geçir (tip korunur)
                         for s in state.data.get("sensors", []):
-                            if s.get("type") != "RASPI":
+                            if s.get("device") != "RASPI":
+                                original = s.get("type", "INPUT")
                                 s["device"] = "RASPI"
-                                s["type"] = "RASPI"
+                                s["type"] = original
                                 gates_updated = True
                         
                         # Kilitleri bağla
@@ -361,7 +431,7 @@ async def startup_event():
             # Bulunan nanoyu listeye ekle
             port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == target), None)
             if port:
-                new_nano = {"id": target, "name": "Kilit ve Sensörler" if target == "GatesNano" else "Valf Kontrol", "port": port, "status": "ONLINE", "baudRate": 9600}
+                new_nano = {"id": target, "name": "Kilit ve Sensörler" if target == "GatesNano" else "Valf Kontrol", "port": port, "status": "ONLINE", "baudRate": 115200}
                 state.data["nanos"].append(new_nano)
                 db.save_state("nanos", state.data["nanos"])
                 
@@ -370,14 +440,16 @@ async def startup_event():
                     for v in state.data["valves"]: v["connectionId"] = "ValvesNano"
                     db.save_state("valves", state.data["valves"])
                 else:
-                    for s in state.data["sensors"]: 
+                    for s in state.data["sensors"]:
                         s["device"] = "GatesNano"
-                        s["type"] = "ARDUINO"
                     state.data["inputGate"]["nanoId"] = "GatesNano"
                     state.data["outputGate"]["nanoId"] = "GatesNano"
                     db.save_state("sensors", state.data["sensors"])
                     db.save_state("inputGate", state.data["inputGate"])
                     db.save_state("outputGate", state.data["outputGate"])
+    
+    # 3. Donanım yapılandırmasını uygula (Nano'lar bulunduktan sonra)
+    hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
     
     asyncio.create_task(broadcast_loop())
     asyncio.create_task(prod.run_loop())

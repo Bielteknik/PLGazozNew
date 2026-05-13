@@ -159,5 +159,6 @@ export interface SystemData {
   isWashingDone: boolean;
   isWashingRequired: boolean;
   stopAfterCycleRequested: boolean;
-  activePrompt: 'BOTTLE_CHECK' | null;
+  activePrompt: 'BOTTLE_CHECK' | 'COUNT_MISMATCH' | null;
+  promptData?: { inputCount: number; outputCount: number };
 }

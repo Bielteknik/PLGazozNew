@@ -22,9 +22,7 @@ class StateManager:
             "recipes": [],
             "valves": [],
             "sensors": [],
-            "nanos": [],
-            "inputCount": 0,
-            "outputCount": 0
+            "nanos": []
         }
         
         # Diğer tüm konfigürasyonu Database'den yükle
@@ -66,7 +64,7 @@ class StateManager:
 
     def start_auto(self):
         self.data["mode"] = "OTOMATİK"
-        self.data["autoState"] = "CALISIYOR"
+        self.data["autoState"] = "BEKLEMEDE"
         self.log("Otomatik üretim döngüsü başlatıldı.")
 
     def toggle_valve_manual(self, valve_id):

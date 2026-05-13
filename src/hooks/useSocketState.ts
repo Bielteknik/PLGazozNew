@@ -69,8 +69,12 @@ export function useSocketState() {
     triggerFault: () => emitAction('TRIGGER_FAULT'),
     updateConfig: (config: Partial<SystemConfig>) => emitAction('UPDATE_CONFIG', { config }),
     addHardware: () => {
-      const nextId = Math.max(0, ...data.valves.map(v => v.id)) + 1;
-      emitAction('ADD_VALVE', { valve: { id: nextId, name: `Valf #${nextId}`, isOpen: false, mode: 'CONTINUOUS', enabled: true, pin: '0' } });
+      const usedIds = new Set(data.valves.map(v => v.id));
+      let nextId = 10;
+      for (let id = 10; id <= 18; id++) { if (!usedIds.has(id)) { nextId = id; break; } }
+      if (nextId > 18) return;
+      const pinMap: Record<number, string> = { 10: '2', 11: '3', 12: '4', 13: '5', 14: '6', 15: '7', 16: '8', 17: '11', 18: '12' };
+      emitAction('ADD_VALVE', { valve: { id: nextId, name: `Vana ${nextId - 9}`, isOpen: false, mode: 'CONTINUOUS', enabled: true, pin: pinMap[nextId] } });
     },
     removeHardware: (id: number) => emitAction('REMOVE_VALVE', { id }),
     toggleHardwareStatus: (id: number) => emitAction('TOGGLE_HARDWARE_STATUS', { id }),

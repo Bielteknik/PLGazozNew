@@ -436,10 +436,14 @@ export function useSystemSimulator() {
 
   const addHardware = useCallback(() => {
     setData(p => {
-      const maxId = p.valves.length > 0 ? Math.max(...p.valves.map(v => v.id)) : 0;
+      const usedIds = new Set(p.valves.map(v => v.id));
+      let nextId = 10;
+      for (let id = 10; id <= 18; id++) { if (!usedIds.has(id)) { nextId = id; break; } }
+      if (nextId > 18) return p;
+      const pinMap: Record<number, string> = { 10: '2', 11: '3', 12: '4', 13: '5', 14: '6', 15: '7', 16: '8', 17: '11', 18: '12' };
       return {
         ...p,
-        valves: [...p.valves, { id: maxId + 1, isOpen: false, mode: 'CONTINUOUS', enabled: true, pulseDuration: 1000 }]
+        valves: [...p.valves, { id: nextId, name: `Vana ${nextId - 9}`, isOpen: false, mode: 'CONTINUOUS', enabled: true, pulseDuration: 1000, pin: pinMap[nextId] }]
       };
     });
   }, []);
