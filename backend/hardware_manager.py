@@ -239,9 +239,9 @@ class HardwareManager:
                 port = next((p for p, d_id in self.port_to_id_map.items() if d_id == "ValvesNano"), None)
 
         if port:
-            state_str = "ON" if state else "OFF"
-            full_cmd = f"VALVE_CMD:{valve_id}:{state_str}"
-            print(f"[Hardware] >>> VALF KOMUTU -> ValvesNano ({port}): {full_cmd}")
+            state_str = "AÇILDI" if state else "KAPANDI"
+            full_cmd = f"VALVE_CMD:{valve_id}:{'ON' if state else 'OFF'}"
+            print(f"[Hardware] >>> Pin {valve_id} -> {state_str}")
             self.send_command(full_cmd, target_port=port)
             return True
         else:
@@ -253,7 +253,7 @@ class HardwareManager:
         try:
             # Tip dönüşümü: Arayüzden string gelme ihtimaline karşı sayıya çevir
             duration = float(duration_ms)
-            print(f"[Hardware] >>> TEST PULSE BAŞLADI: Valf {valve_id}, Süre: {duration}ms")
+            print(f"[Hardware] >>> Pin {valve_id} TEST PULSE: {duration}ms BAŞLADI")
             
             self.control_valve(valve_id, True)
             await asyncio.sleep(duration / 1000.0)
@@ -261,7 +261,7 @@ class HardwareManager:
             print(f"[Hardware] Pulse Hatası: {e}")
         finally:
             # Ne olursa olsun kapatmayı dene (Bağlantı kopsa bile self-healing ile kapatacak)
-            print(f"[Hardware] >>> TEST PULSE BİTİŞ: Valf {valve_id} kapatılıyor.")
+            print(f"[Hardware] >>> Pin {valve_id} TEST PULSE BİTTİ.")
             success = self.control_valve(valve_id, False)
             if not success:
                 print(f"[Hardware] UYARI: Valf {valve_id} kapatılamadı! ALL_OFF deneniyor.")

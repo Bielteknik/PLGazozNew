@@ -127,15 +127,15 @@ class DatabaseManager:
                 "washValveIntervalMs": 2000
             },
             "valves": [
-                {"id": 10, "name": "1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 11, "name": "2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 12, "name": "3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 13, "name": "4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 14, "name": "5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 15, "name": "6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 16, "name": "7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 17, "name": "8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
-                {"id": 18, "name": "9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
+                {"id": 2, "name": "Vana 1", "pin": "2", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 3, "name": "Vana 2", "pin": "3", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 4, "name": "Vana 3", "pin": "4", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 5, "name": "Vana 4", "pin": "5", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 6, "name": "Vana 5", "pin": "6", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 7, "name": "Vana 6", "pin": "7", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 8, "name": "Vana 7", "pin": "8", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 9, "name": "Vana 8", "pin": "9", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"},
+                {"id": 10, "name": "Vana 9", "pin": "10", "enabled": True, "isOpen": False, "mode": "CONTINUOUS", "connectionId": "ValvesNano"}
             ],
             "sensors": [
                 {"id": "SENS-IN", "name": "Giriş Lazeri", "type": "INPUT", "pin": "17", "enabled": True, "device": "GatesNano", "status": "ONLINE"},

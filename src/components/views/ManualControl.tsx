@@ -338,7 +338,9 @@ export function ManualControl({
                         className="w-full bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none"
                       >
                         {(data.valves || []).filter(v => v.enabled).map(v => (
-                          <option key={v.id} value={v.id}>{v.name || `Vana ${v.id}`}</option>
+                          <option key={v.id} value={v.id}>
+                            {v.name || `Vana (Pin ${v.id})`}
+                          </option>
                         ))}
                       </select>
                     </div>
