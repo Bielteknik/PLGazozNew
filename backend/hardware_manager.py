@@ -12,6 +12,10 @@ class HardwareManager:
         self.on_output_detected = None
         self.sensor_config = []
         self.polling_active = False
+        self.device_status = {
+            "ValvesNano": "READY",
+            "GatesNano": "READY"
+        }
         
     def get_available_ports(self):
         """Sadece ttyUSB ve ttyACM ile başlayan geçerli seri portları listeler."""
@@ -203,12 +207,20 @@ class HardwareManager:
                                 if self.on_input_detected: self.on_input_detected(device_id, "OUT")
                             elif "ACK:" in payload:
                                 print(f"[Hardware] {device_id} Onay: {payload}")
+                            elif "STATUS:" in payload:
+                                status = payload.replace("STATUS:", "").strip()
+                                self.device_status[device_id] = status
+                                print(f"[Hardware] {device_id} Durumu: {status}")
+                            elif "DONE:" in payload:
+                                self.device_status[device_id] = "READY"
+                                print(f"[Hardware] {device_id} İşlem Tamamlandı.")
                         elif line.startswith("ID:"):
                             # El sıkışma dışı gelen ID mesajlarını da işle (Örn: Restart sonrası)
                             new_id = line.replace("ID:", "").strip() # Boşlukları temizle!
                             if new_id in ["GatesNano", "ValvesNano"]:
                                 self.port_to_id_map[port] = new_id
-                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
+                                self.device_status[new_id] = "READY" # Geri geldiğinde hazır kabul et
+                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id} (HAZIR)")
                 
             except Exception as e:
                 # Bağlantıyı hemen silme, sadece hatayı logla
