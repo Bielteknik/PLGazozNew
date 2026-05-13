@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RefreshCw, Power } from 'lucide-react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Dashboard } from './components/views/Dashboard';
 import { ManualControl } from './components/views/ManualControl';
