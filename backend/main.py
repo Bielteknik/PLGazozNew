@@ -420,19 +420,19 @@ async def broadcast_loop():
 
         for n in nanos:
             port = n.get("port")
-            if port:
-                is_online = hw.is_port_online(port)
-                if not is_online:
-                    # Otomatik keşfet ve bağlan
-                    if hw.find_and_connect(n['id']):
-                        # Yeni portu kaydet
-                        for p, d_id in hw.port_to_id_map.items():
-                            if d_id == n['id']:
-                                n['port'] = p
-                                break
-                        is_online = True
+            is_online = hw.is_port_online(port) if port else False
+            
+            if not is_online:
+                # Otomatik keşfet ve bağlan
+                if hw.find_and_connect(n['id']):
+                    # Yeni portu kaydet
+                    for p, d_id in hw.port_to_id_map.items():
+                        if d_id == n['id']:
+                            n['port'] = p
+                            break
+                    is_online = True
                 
-                n["status"] = "ONLINE" if is_online else "OFFLINE"
+            n["status"] = "ONLINE" if is_online else "OFFLINE"
                 
                 # 2. Otonom Eşleştirme & Kalıcı Kayıt
                 if is_online:

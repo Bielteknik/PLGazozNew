@@ -29,29 +29,34 @@ class HardwareManager:
             if port in self.serial_conns:
                 if self.serial_conns[port].is_open: return True
             
-            conn = serial.Serial(port, baudrate, timeout=1.0)
-            time.sleep(2) # Arduino'nun resetlenmesini bekle
+            # Timeout'u yanıt beklemek için biraz artırıyoruz
+            conn = serial.Serial(port, baudrate, timeout=1.5)
+            time.sleep(3) # Arduino Reset Bekleme (Daha uzun süre)
             
             # Tamponu temizle (Boot loglarını atla)
             conn.reset_input_buffer()
             conn.reset_output_buffer()
             
-            # El Sıkışma (Handshake)
-            conn.write(b"IDENTIFY\n")
-            
-            # Kimlik gelene kadar birkaç satır okumayı dene (Boot logları veya gürültü olabilir)
-            for _ in range(5):
-                response = conn.readline().decode('utf-8', errors='ignore').strip()
-                if not response: continue
+            # El Sıkışma (Handshake) - Birkaç kez deniyoruz
+            for attempt in range(3):
+                # Hem \n hem \r\n göndererek uyumluluğu artırıyoruz
+                conn.write(b"IDENTIFY\n")
                 
-                if response.startswith("ID:"):
-                    device_id = response.replace("ID:", "").strip()
-                    self.serial_conns[port] = conn
-                    self.port_to_id_map[port] = device_id
-                    print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
-                    return True
-                else:
-                    print(f"[Hardware] Handshake Bilgisi Bekleniyor ({port}): {response}")
+                # Kimlik gelene kadar birkaç satır okumayı dene
+                for _ in range(8):
+                    response = conn.readline().decode('utf-8', errors='ignore').strip()
+                    if not response: continue
+                    
+                    if response.startswith("ID:"):
+                        device_id = response.replace("ID:", "").strip()
+                        self.serial_conns[port] = conn
+                        self.port_to_id_map[port] = device_id
+                        print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
+                        return True
+                    else:
+                        print(f"[Hardware] Yanıt Alındı ({port}): {response}")
+                
+                time.sleep(0.5) # Denemeler arası kısa bekleme
             
             print(f"[Hardware] Handshake BAŞARISIZ ({port}): Kimlik alınamadı.")
             conn.close()
@@ -303,33 +308,37 @@ class HardwareManager:
             self.polling_active = True
             
             def poll_loop():
-                last_in = 1
-                last_out = 1
                 last_in_time = 0
                 last_out_time = 0
-                debounce_ms = 0.2 # 200ms cooldown
+                in_low_count = 0
+                out_low_count = 0
+                required_stable_polls = 10 
+                cooldown_s = 0.5
                 
                 while self.polling_active:
                     try:
                         now = time.time()
-                        
-                        # Giriş Sensörü
                         in_val = lgpio.gpio_read(self.gpio_h, in_pin)
-                        if in_val == 0 and last_in == 1:
-                            if (now - last_in_time) > debounce_ms:
-                                self._handle_input("RASPI")
-                                last_in_time = now
-                        last_in = in_val
+                        if in_val == 0:
+                            in_low_count += 1
+                            if in_low_count == required_stable_polls:
+                                if (now - last_in_time) > cooldown_s:
+                                    self._handle_input("RASPI")
+                                    last_in_time = now
+                        else:
+                            in_low_count = 0
                         
-                        # Çıkış Sensörü
                         out_val = lgpio.gpio_read(self.gpio_h, out_pin)
-                        if out_val == 0 and last_out == 1:
-                            if (now - last_out_time) > debounce_ms:
-                                self._handle_output("RASPI")
-                                last_out_time = now
-                        last_out = out_val
-
-                        time.sleep(0.01) # 10ms tarama hızı
+                        if out_val == 0:
+                            out_low_count += 1
+                            if out_low_count == required_stable_polls:
+                                if (now - last_out_time) > cooldown_s:
+                                    self._handle_output("RASPI")
+                                    last_out_time = now
+                        else:
+                            out_low_count = 0
+                        
+                        time.sleep(0.01)
                     except: break
 
             self.poll_thread = threading.Thread(target=poll_loop, daemon=True)
