@@ -56,6 +56,7 @@ export default function App() {
     requestStopAfterCycle,
     startFlush,
     stopFlush,
+    systemReset,
     manualLogin,
     manualLogout,
     manualToken,
@@ -160,6 +161,7 @@ export default function App() {
              onUpdateSensor={updateSensor}
              onUpdateGate={updateGate}
              onUpdateSystemGate={updateSystemGate}
+             onSystemReset={systemReset}
           />
         )}
       </main>

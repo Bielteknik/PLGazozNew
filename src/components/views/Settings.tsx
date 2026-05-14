@@ -16,7 +16,8 @@ import {
   FileText,
   Info,
   Clock,
-  Box
+  Box,
+  RefreshCw
 } from 'lucide-react';
 import { SystemData, Recipe, SystemConfig } from '../../types/system';
 import { cn } from '../../lib/utils';
@@ -33,6 +34,7 @@ interface SettingsProps {
   onUpdateSensor: (id: string, updates: Partial<any>) => void;
   onUpdateGate: (id: string, updates: Partial<any>) => void;
   onUpdateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<any>) => void;
+  onSystemReset: () => void;
 }
 
 type SettingsTab = 'RECIPES' | 'HARDWARE' | 'NETWORK' | 'SYSTEM';
@@ -47,7 +49,8 @@ export function Settings({
   onUpdateValve,
   onUpdateSensor,
   onUpdateGate,
-  onUpdateSystemGate
+  onUpdateSystemGate,
+  onSystemReset
 }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('RECIPES');
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
@@ -722,6 +725,26 @@ export function Settings({
                    <div className="text-[10px] font-mono text-gray-600 uppercase tracking-[0.3em]">Runtime UUID</div>
                    <div className="text-xl font-mono text-gray-400">#9428-RT-64</div>
                    <div className="text-[8px] font-mono p-1 bg-white/5 text-gray-500 rounded border border-white/5 uppercase">Linux-RT 5.15-ARM64</div>
+                </div>
+
+                {/* GLOBAL RESET - DANGER ZONE */}
+                <div className="mt-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl space-y-4">
+                   <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center gap-2">
+                      <Shield size={12} /> TEHLİKELİ BÖLGE
+                   </h4>
+                   <p className="text-[9px] text-gray-500 leading-relaxed italic">
+                      Sistem donanım bağlantıları koptuğunda veya kararsızlık durumunda Global Reset atarak sistemi sanki yeni başlatılmış gibi fabrika ayarlarına döndürebilirsiniz.
+                   </p>
+                   <button 
+                      onClick={() => {
+                         if (window.confirm('TÜM SİSTEM SIFIRLANACAK! Emin misiniz?')) {
+                            onSystemReset();
+                         }
+                      }}
+                      className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-[11px] shadow-lg shadow-red-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                   >
+                      <RefreshCw size={14} /> GLOBAL SİSTEM RESET AT
+                   </button>
                 </div>
               </div>
             </motion.div>

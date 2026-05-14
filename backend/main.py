@@ -368,6 +368,22 @@ async def handle_action(sid, data):
                 state.data["mode"] = "BEKLEMEDE"
                 state.log("Kullanıcı reddetti. Sistem bekleme moduna alındı.")
 
+    elif action_type == 'SYSTEM_RESET':
+        print("[System] !!! GLOBAL RESET TETİKLENDİ !!!")
+        state.log("SİSTEM RESET: Donanım ve yazılım sıfırlanıyor...")
+        # 1. Donanım Bağlantılarını Tamamen Kapat
+        hw.cleanup()
+        # 2. Veritabanındaki Donanım Linklerini Temizle
+        db.reset_hardware_links()
+        # 3. State'i Veritabanından (Temiz Halini) Yükle
+        state.reload_from_db()
+        # 4. Donanım Taramasını En Baştan Başlat
+        print("[System] Donanım yeniden taranıyor...")
+        hw.discover_nanos()
+        # 5. Başlangıç Yapılandırmasını Uygula
+        hw.apply_config(state.data["nanos"], state.data["sensors"])
+        state.log("SİSTEM RESET: Sıfırlama tamamlandı, donanım yeniden bağlandı.")
+
     # --- Konfig ---
     elif action_type == 'UPDATE_CONFIG':
         state.data["config"].update(payload.get("config", {}))
