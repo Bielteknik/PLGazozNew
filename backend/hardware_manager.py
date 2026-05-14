@@ -172,7 +172,9 @@ class HardwareManager:
             gate_id_upper = gate_id.upper()
             pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
             pos_val = int(position)
-            steps = 400 if pos_val > 0 else -400
+            steps = 500 if pos_val > 0 else -500
+            
+            # En sade format: "G1:500"
             full_cmd = f"{pin}:{steps}"
             print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)
