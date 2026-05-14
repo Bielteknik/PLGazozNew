@@ -200,8 +200,7 @@ class ProductionManager:
         self.state.data["cycleHistory"] = history
 
     def handle_sensor(self, device_id, sensor_type="IN"):
-        if self.state.data.get("mode") not in ("OTOMATİK", "TAHLIYE", "YIKAMA"):
-            return
+        # Not: Artık her modda sayım yapıyoruz (Teşhis kolaylığı için)
         if sensor_type == "IN":
             self.state.increment_input()
         else:

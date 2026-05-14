@@ -424,11 +424,13 @@ async def broadcast_loop():
             
             if not is_online:
                 # Otomatik keşfet ve bağlan
+                print(f"[Self-Healing] {n['id']} aranıyor...")
                 if hw.find_and_connect(n['id']):
                     # Yeni portu kaydet
                     for p, d_id in hw.port_to_id_map.items():
                         if d_id == n['id']:
                             n['port'] = p
+                            print(f"[Self-Healing] {n['id']} bağlandı: {p}")
                             break
                     is_online = True
                 
