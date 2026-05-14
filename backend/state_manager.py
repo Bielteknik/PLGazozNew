@@ -24,6 +24,7 @@ class StateManager:
             "sensors": [],
             "nanos": []
         }
+        self.last_hw_search_time = 0 
         
         # Diğer tüm konfigürasyonu Database'den yükle
         self.reload_from_db()

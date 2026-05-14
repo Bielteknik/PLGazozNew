@@ -7,6 +7,7 @@ import { History } from './components/views/History';
 import { Diagnostics } from './components/views/Diagnostics';
 import { Settings } from './components/views/Settings';
 import { Hardware } from './components/views/Hardware';
+import { OperatorControl } from './components/views/OperatorControl';
 import { useSocketState } from './hooks/useSocketState';
 
 export default function App() {
@@ -85,6 +86,18 @@ export default function App() {
             onStartFlush={startFlush}
             onStopFlush={stopFlush}
             onToggleHardwareStatus={toggleHardwareStatus}
+          />
+        )}
+        {currentTab === 'operator' && (
+          <OperatorControl 
+             data={data}
+             setMode={setMode}
+             onStartAutoCycle={startAutoCycle}
+             operateGate={operateGate}
+             toggleValve={toggleValve}
+             testValvePulse={testValvePulse}
+             resetCounter={resetCounter}
+             onSelectRecipe={selectRecipe}
           />
         )}
         {currentTab === 'manual' && (

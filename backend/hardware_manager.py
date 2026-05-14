@@ -29,9 +29,9 @@ class HardwareManager:
             if port in self.serial_conns:
                 if self.serial_conns[port].is_open: return True
             
-            # Timeout'u yanıt beklemek için biraz artırıyoruz
-            conn = serial.Serial(port, baudrate, timeout=1.5)
-            time.sleep(3) # Arduino Reset Bekleme (Daha uzun süre)
+            # Timeout'u yanıt beklemek için optimize ediyoruz
+            conn = serial.Serial(port, baudrate, timeout=1.0)
+            time.sleep(2) # Arduino Reset Bekleme (Daha dengeli süre)
             
             # Tamponu temizle (Boot loglarını atla)
             conn.reset_input_buffer()
@@ -312,8 +312,8 @@ class HardwareManager:
                 last_out_time = 0
                 in_low_count = 0
                 out_low_count = 0
-                required_stable_polls = 10 
-                cooldown_s = 0.5
+                required_stable_polls = 3 
+                cooldown_s = 0.2
                 
                 while self.polling_active:
                     try:

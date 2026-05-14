@@ -423,16 +423,19 @@ async def broadcast_loop():
             is_online = hw.is_port_online(port) if port else False
             
             if not is_online:
-                # Otomatik keşfet ve bağlan
-                print(f"[Self-Healing] {n['id']} aranıyor...")
-                if hw.find_and_connect(n['id']):
-                    # Yeni portu kaydet
-                    for p, d_id in hw.port_to_id_map.items():
-                        if d_id == n['id']:
-                            n['port'] = p
-                            print(f"[Self-Healing] {n['id']} bağlandı: {p}")
-                            break
-                    is_online = True
+                # Sadece 10 saniyede bir yeni tarama yap (Sistemi bloke etmemek için)
+                now = time.time()
+                if (now - state.last_hw_search_time) > 10:
+                    state.last_hw_search_time = now
+                    print(f"[Self-Healing] {n['id']} aranıyor...")
+                    if hw.find_and_connect(n['id']):
+                        # Yeni portu kaydet
+                        for p, d_id in hw.port_to_id_map.items():
+                            if d_id == n['id']:
+                                n['port'] = p
+                                print(f"[Self-Healing] {n['id']} bağlandı: {p}")
+                                break
+                        is_online = True
                 
             n["status"] = "ONLINE" if is_online else "OFFLINE"
                 

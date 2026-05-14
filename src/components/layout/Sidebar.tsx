@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutDashboard, Sliders, History, AlertTriangle, Settings, Server, ChevronLeft, ChevronRight, LogOut, UserCircle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { SystemData } from '../../types/system';
 
@@ -23,6 +23,7 @@ export function Sidebar({ currentTab, onChangeTab, data, onLogout }: SidebarProp
   
   const tabs = [
     { id: 'dashboard', label: 'İzleme Ekranı', icon: LayoutDashboard },
+    { id: 'operator', label: 'Operatör Modu', icon: UserCircle },
     { id: 'hardware', label: 'Donanım', icon: Server },
     { id: 'manual', label: 'Manuel Kontrol', icon: Sliders },
     { id: 'history', label: 'Üretim Geçmişi', icon: History },
