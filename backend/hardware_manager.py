@@ -29,40 +29,40 @@ class HardwareManager:
             if port in self.serial_conns:
                 if self.serial_conns[port].is_open: return True
             
-            # Timeout'u yanıt beklemek için optimize ediyoruz
+            print(f"[Hardware] {port} portuna bağlanılıyor ({baudrate})...")
             conn = serial.Serial(port, baudrate, timeout=1.0)
-            time.sleep(2) # Arduino Reset Bekleme (Daha dengeli süre)
+            time.sleep(2) # Arduino Reset Bekleme
             
-            # Tamponu temizle (Boot loglarını atla)
+            # Tamponu temizle
             conn.reset_input_buffer()
             conn.reset_output_buffer()
             
-            # El Sıkışma (Handshake) - Birkaç kez deniyoruz
+            # El Sıkışma (Handshake)
             for attempt in range(3):
-                # Hem \n hem \r\n göndererek uyumluluğu artırıyoruz
+                print(f"[Hardware] {port} için IDENTIFY gönderiliyor (Deneme {attempt+1})...")
                 conn.write(b"IDENTIFY\n")
                 
-                # Kimlik gelene kadar birkaç satır okumayı dene
-                for _ in range(8):
-                    response = conn.readline().decode('utf-8', errors='ignore').strip()
-                    if not response: continue
-                    
-                    if response.startswith("ID:"):
-                        device_id = response.replace("ID:", "").strip()
-                        self.serial_conns[port] = conn
-                        self.port_to_id_map[port] = device_id
-                        print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
-                        return True
-                    else:
-                        print(f"[Hardware] Yanıt Alındı ({port}): {response}")
+                # Yanıt bekle
+                for _ in range(10):
+                    line = conn.readline().decode('utf-8', errors='ignore').strip()
+                    if line:
+                        print(f"[Hardware] {port} -> ALINAN YANIT: '{line}'")
+                        
+                        # Hem "ID:IDNAME" hem de direkt "IDNAME" formatını destekle
+                        clean_id = line.replace("ID:", "").strip()
+                        if clean_id in ["GatesNano", "ValvesNano"]:
+                            self.serial_conns[port] = conn
+                            self.port_to_id_map[port] = clean_id
+                            print(f"[Hardware] {port} DOĞRULANDI: {clean_id}")
+                            return True
                 
-                time.sleep(0.5) # Denemeler arası kısa bekleme
+                time.sleep(0.5)
             
-            print(f"[Hardware] Handshake BAŞARISIZ ({port}): Kimlik alınamadı.")
+            print(f"[Hardware] {port} el sıkışma başarısız: Geçerli ID alınamadı.")
             conn.close()
             return False
         except Exception as e:
-            print(f"[Hardware] Bağlantı Hatası ({port}): {e}")
+            print(f"[Hardware] {port} bağlantı hatası: {e}")
             return False
 
     def find_and_connect(self, target_id):
