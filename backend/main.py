@@ -434,43 +434,43 @@ async def broadcast_loop():
                 
             n["status"] = "ONLINE" if is_online else "OFFLINE"
                 
-                # 2. Otonom Eşleştirme & Kalıcı Kayıt
-                if is_online:
-                    if n['id'] == 'ValvesNano':
-                        valves_updated = False
-                        for v in state.data.get("valves", []):
-                            if v.get("nanoId") != "ValvesNano":
-                                v["nanoId"] = "ValvesNano"
-                                valves_updated = True
-                        if valves_updated:
-                            print(f"[Auto-Config] ValvesNano eşleşti, valfler kaydedildi.")
-                            db.save_state("valves", state.data["valves"])
+            # 2. Otonom Eşleştirme & Kalıcı Kayıt
+            if is_online:
+                if n['id'] == 'ValvesNano':
+                    valves_updated = False
+                    for v in state.data.get("valves", []):
+                        if v.get("nanoId") != "ValvesNano":
+                            v["nanoId"] = "ValvesNano"
+                            valves_updated = True
+                    if valves_updated:
+                        print(f"[Auto-Config] ValvesNano eşleşti, valfler kaydedildi.")
+                        db.save_state("valves", state.data["valves"])
+                
+                elif n['id'] == 'GatesNano':
+                    gates_updated = False
+                    # Sensörleri Raspberry Pi moduna geçir (tip korunur)
+                    for s in state.data.get("sensors", []):
+                        if s.get("device") != "RASPI":
+                            original = s.get("type", "INPUT")
+                            s["device"] = "RASPI"
+                            s["type"] = original
+                            gates_updated = True
                     
-                    elif n['id'] == 'GatesNano':
-                        gates_updated = False
-                        # Sensörleri Raspberry Pi moduna geçir (tip korunur)
-                        for s in state.data.get("sensors", []):
-                            if s.get("device") != "RASPI":
-                                original = s.get("type", "INPUT")
-                                s["device"] = "RASPI"
-                                s["type"] = original
-                                gates_updated = True
+                    # Kilitleri bağla
+                    if state.data.get("inputGate", {}).get("nanoId") != "GatesNano":
+                        state.data["inputGate"]["nanoId"] = "GatesNano"
+                        gates_updated = True
+                    if state.data.get("outputGate", {}).get("nanoId") != "GatesNano":
+                        state.data["outputGate"]["nanoId"] = "GatesNano"
+                        gates_updated = True
                         
-                        # Kilitleri bağla
-                        if state.data.get("inputGate", {}).get("nanoId") != "GatesNano":
-                            state.data["inputGate"]["nanoId"] = "GatesNano"
-                            gates_updated = True
-                        if state.data.get("outputGate", {}).get("nanoId") != "GatesNano":
-                            state.data["outputGate"]["nanoId"] = "GatesNano"
-                            gates_updated = True
-                            
-                        if gates_updated:
-                            print(f"[Auto-Config] GatesNano eşleşti, kilitler ve sensörler kaydedildi.")
-                            db.save_state("sensors", state.data["sensors"])
-                            db.save_state("inputGate", state.data["inputGate"])
-                            db.save_state("outputGate", state.data["outputGate"])
-                            # Donanıma yeni sensör modunu bildir!
-                            hw.apply_config(state.data["nanos"], state.data["sensors"])
+                    if gates_updated:
+                        print(f"[Auto-Config] GatesNano eşleşti, kilitler ve sensörler kaydedildi.")
+                        db.save_state("sensors", state.data["sensors"])
+                        db.save_state("inputGate", state.data["inputGate"])
+                        db.save_state("outputGate", state.data["outputGate"])
+                        # Donanıma yeni sensör modunu bildir!
+                        hw.apply_config(state.data["nanos"], state.data["sensors"])
         
         # --- Durum Temizliği (Frontend Çökme Koruması) ---
         for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts", "extraGates"]:
