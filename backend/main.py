@@ -5,14 +5,63 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import os
 import time
+from contextlib import asynccontextmanager
 
 from state_manager import StateManager
 from hardware_manager import HardwareManager
 from db_manager import DatabaseManager
 from production_manager import ProductionManager
 
+# --- Lifespan ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global main_loop
+    main_loop = asyncio.get_event_loop()
+    
+    # 1. Her şeyi sıfırla (Temiz Sayfa)
+    db.reset_hardware_links()
+    state.reload_from_db() # Ham veriyle ezmek yerine güvenli yükleme yap
+    
+    # 2. İlk Taramayı Yap
+    print("[Startup] Donanım aranıyor...")
+    for target in ['GatesNano', 'ValvesNano']:
+        if hw.find_and_connect(target):
+            # Bulunan nanoyu listeye ekle
+            port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == target), None)
+            if port:
+                new_nano = {"id": target, "name": "Kilit ve Sensörler" if target == "GatesNano" else "Valf Kontrol", "port": port, "status": "ONLINE", "baudRate": 115200}
+                state.data["nanos"].append(new_nano)
+                db.save_state("nanos", state.data["nanos"])
+                
+                # Otonom Eşleştirme Yap
+                if target == 'ValvesNano':
+                    for v in state.data["valves"]: v["nanoId"] = "ValvesNano"
+                    db.save_state("valves", state.data["valves"])
+                else:
+                    for s in state.data["sensors"]:
+                        s["device"] = "GatesNano"
+                    state.data["inputGate"]["nanoId"] = "GatesNano"
+                    state.data["outputGate"]["nanoId"] = "GatesNano"
+                    db.save_state("sensors", state.data["sensors"])
+                    db.save_state("inputGate", state.data["inputGate"])
+                    db.save_state("outputGate", state.data["outputGate"])
+    
+    # 3. Donanım yapılandırmasını uygula (Nano'lar bulunduktan sonra)
+    hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
+    
+    # Döngüleri Başlat
+    b_task = asyncio.create_task(broadcast_loop())
+    p_task = asyncio.create_task(prod.run_loop())
+    
+    yield
+    
+    # Kapanış
+    b_task.cancel()
+    p_task.cancel()
+    hw.cleanup()
+
 # --- Altyapı ---
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket_app = socketio.ASGIApp(sio, app)
 
@@ -352,6 +401,14 @@ async def broadcast_loop():
         
         # --- Nano Donanım Yönetimi & Otonom Eşleştirme ---
         nanos = state.data.get("nanos", [])
+        
+        # Beklenen donanımların listede olduğundan emin ol (Eğer startup'ta bulunamadılarsa listeye ekle ki döngü aramaya devam etsin)
+        expected_ids = ['GatesNano', 'ValvesNano']
+        for eid in expected_ids:
+            if not any(n['id'] == eid for n in nanos):
+                nanos.append({"id": eid, "name": "Kilit ve Sensörler" if eid == "GatesNano" else "Valf Kontrol", "port": None, "status": "OFFLINE", "baudRate": 115200})
+                state.data["nanos"] = nanos
+
         initial_nano_count = len(nanos)
         
         # 1. Temizlik: Sadece meşru donanımları tut (Hayaletleri sil)
@@ -438,44 +495,6 @@ async def broadcast_loop():
         safe_emit()
         await asyncio.sleep(0.5)
 
-@app.on_event("startup")
-async def startup_event():
-    global main_loop
-    main_loop = asyncio.get_event_loop()
-    
-    # 1. Her şeyi sıfırla (Temiz Sayfa)
-    db.reset_hardware_links()
-    state.reload_from_db() # Ham veriyle ezmek yerine güvenli yükleme yap
-    
-    # 2. İlk Taramayı Yap
-    print("[Startup] Donanım aranıyor...")
-    for target in ['GatesNano', 'ValvesNano']:
-        if hw.find_and_connect(target):
-            # Bulunan nanoyu listeye ekle
-            port = next((p for p, d_id in hw.port_to_id_map.items() if d_id == target), None)
-            if port:
-                new_nano = {"id": target, "name": "Kilit ve Sensörler" if target == "GatesNano" else "Valf Kontrol", "port": port, "status": "ONLINE", "baudRate": 115200}
-                state.data["nanos"].append(new_nano)
-                db.save_state("nanos", state.data["nanos"])
-                
-                # Otonom Eşleştirme Yap
-                if target == 'ValvesNano':
-                    for v in state.data["valves"]: v["nanoId"] = "ValvesNano"
-                    db.save_state("valves", state.data["valves"])
-                else:
-                    for s in state.data["sensors"]:
-                        s["device"] = "GatesNano"
-                    state.data["inputGate"]["nanoId"] = "GatesNano"
-                    state.data["outputGate"]["nanoId"] = "GatesNano"
-                    db.save_state("sensors", state.data["sensors"])
-                    db.save_state("inputGate", state.data["inputGate"])
-                    db.save_state("outputGate", state.data["outputGate"])
-    
-    # 3. Donanım yapılandırmasını uygula (Nano'lar bulunduktan sonra)
-    hw.apply_config(state.data.get("nanos", []), state.data.get("sensors", []))
-    
-    asyncio.create_task(broadcast_loop())
-    asyncio.create_task(prod.run_loop())
 
 if __name__ == "__main__":
     print("\n" + "="*50)

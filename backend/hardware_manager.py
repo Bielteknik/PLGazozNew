@@ -32,20 +32,30 @@ class HardwareManager:
             conn = serial.Serial(port, baudrate, timeout=1.0)
             time.sleep(2) # Arduino'nun resetlenmesini bekle
             
+            # Tamponu temizle (Boot loglarını atla)
+            conn.reset_input_buffer()
+            conn.reset_output_buffer()
+            
             # El Sıkışma (Handshake)
             conn.write(b"IDENTIFY\n")
-            response = conn.readline().decode('utf-8', errors='ignore').strip()
             
-            if response.startswith("ID:"):
-                device_id = response.replace("ID:", "")
-                self.serial_conns[port] = conn
-                self.port_to_id_map[port] = device_id
-                print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
-                return True
-            else:
-                print(f"[Hardware] Handshake BAŞARISIZ ({port}): Kimlik alınamadı.")
-                conn.close()
-                return False
+            # Kimlik gelene kadar birkaç satır okumayı dene (Boot logları veya gürültü olabilir)
+            for _ in range(5):
+                response = conn.readline().decode('utf-8', errors='ignore').strip()
+                if not response: continue
+                
+                if response.startswith("ID:"):
+                    device_id = response.replace("ID:", "").strip()
+                    self.serial_conns[port] = conn
+                    self.port_to_id_map[port] = device_id
+                    print(f"[Hardware] Handshake BAŞARILI: {port} -> {device_id}")
+                    return True
+                else:
+                    print(f"[Hardware] Handshake Bilgisi Bekleniyor ({port}): {response}")
+            
+            print(f"[Hardware] Handshake BAŞARISIZ ({port}): Kimlik alınamadı.")
+            conn.close()
+            return False
         except Exception as e:
             print(f"[Hardware] Bağlantı Hatası ({port}): {e}")
             return False
