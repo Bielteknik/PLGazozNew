@@ -110,6 +110,7 @@ export function useSocketState() {
     stopWashing: () => emitAction('SET_MODE', { mode: 'BEKLEMEDE' }),
     startFlush: () => emitAction('SET_MODE', { mode: 'TAHLIYE' }),
     stopFlush: () => emitAction('SET_MODE', { mode: 'BEKLEMEDE' }),
+    startOperatorFill: () => emitAction('START_OPERATOR_FILL'),
     systemReset: () => emitAction('SYSTEM_RESET')
   };
 }

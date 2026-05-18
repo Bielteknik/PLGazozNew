@@ -56,6 +56,7 @@ export default function App() {
     requestStopAfterCycle,
     startFlush,
     stopFlush,
+    startOperatorFill,
     systemReset,
     manualLogin,
     manualLogout,
@@ -99,6 +100,7 @@ export default function App() {
              testValvePulse={testValvePulse}
              resetCounter={resetCounter}
              onSelectRecipe={selectRecipe}
+             startOperatorFill={startOperatorFill}
           />
         )}
         {currentTab === 'manual' && (
@@ -162,6 +164,7 @@ export default function App() {
              onUpdateGate={updateGate}
              onUpdateSystemGate={updateSystemGate}
              onSystemReset={systemReset}
+             testValvePulse={testValvePulse}
           />
         )}
       </main>

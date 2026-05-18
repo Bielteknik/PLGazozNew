@@ -172,9 +172,9 @@ class HardwareManager:
             gate_id_upper = gate_id.upper()
             pin = "G1" if "IN" in gate_id_upper or "G1" in gate_id_upper else "G2"
             pos_val = int(position)
-            steps = 500 if pos_val > 0 else -500
+            # 400 adım stall riskini azaltabilir (Eski çalışan değer)
+            steps = 400 if pos_val > 0 else -400
             
-            # En sade format: "G1:500"
             full_cmd = f"{pin}:{steps}"
             print(f"[Hardware] >>> MOTOR KOMUTU -> GatesNano ({port}): {full_cmd}")
             self.send_command(full_cmd, target_port=port)
@@ -253,19 +253,32 @@ class HardwareManager:
         try:
             # Tip dönüşümü: Arayüzden string gelme ihtimaline karşı sayıya çevir
             duration = float(duration_ms)
-            print(f"[Hardware] >>> Pin {valve_id} TEST PULSE: {duration}ms BAŞLADI")
+            print(f"[Hardware] >>> Pin {valve_id} PULSE: {duration}ms BAŞLADI")
             
             self.control_valve(valve_id, True)
             await asyncio.sleep(duration / 1000.0)
         except Exception as e:
             print(f"[Hardware] Pulse Hatası: {e}")
         finally:
-            # Ne olursa olsun kapatmayı dene (Bağlantı kopsa bile self-healing ile kapatacak)
-            print(f"[Hardware] >>> Pin {valve_id} TEST PULSE BİTTİ.")
-            success = self.control_valve(valve_id, False)
-            if not success:
-                print(f"[Hardware] UYARI: Valf {valve_id} kapatılamadı! ALL_OFF deneniyor.")
-                self.all_off()
+            # Ne olursa olsun kapatmayı dene
+            self.control_valve(valve_id, False)
+            print(f"[Hardware] >>> Pin {valve_id} PULSE BİTTİ.")
+
+    async def pulse_valves_concurrent(self, valve_duration_map):
+        """
+        Birden fazla vanayı aynı anda, kendi süreleri kadar açıp kapatır.
+        valve_duration_map: { valve_id: duration_ms }
+        """
+        if not valve_duration_map:
+            return
+            
+        print(f"[Hardware] >>> ÇOKLU PULSE BAŞLATILDI: {valve_duration_map}")
+        tasks = []
+        for v_id, duration in valve_duration_map.items():
+            tasks.append(self.pulse_valve(v_id, duration))
+        
+        await asyncio.gather(*tasks)
+        print(f"[Hardware] >>> ÇOKLU PULSE TAMAMLANDI.")
 
     def toggle_valve(self, pin, state):
         self.control_valve(pin, state)

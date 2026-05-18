@@ -17,7 +17,8 @@ import {
   Info,
   Clock,
   Box,
-  RefreshCw
+  RefreshCw,
+  Play
 } from 'lucide-react';
 import { SystemData, Recipe, SystemConfig } from '../../types/system';
 import { cn } from '../../lib/utils';
@@ -35,6 +36,7 @@ interface SettingsProps {
   onUpdateGate: (id: string, updates: Partial<any>) => void;
   onUpdateSystemGate: (target: 'inputGate' | 'outputGate', updates: Partial<any>) => void;
   onSystemReset: () => void;
+  testValvePulse: (id: number, duration: number) => void;
 }
 
 type SettingsTab = 'RECIPES' | 'HARDWARE' | 'NETWORK' | 'SYSTEM';
@@ -50,11 +52,13 @@ export function Settings({
   onUpdateSensor,
   onUpdateGate,
   onUpdateSystemGate,
-  onSystemReset
+  onSystemReset,
+  testValvePulse
 }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('RECIPES');
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [recipeSortOrder, setRecipeSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [activeDetailTab, setActiveDetailTab] = useState<'PARAMS' | 'VALVES'>('PARAMS');
   
   const sortedRecipes = [...data.recipes].sort((a, b) => {
     if (recipeSortOrder === 'asc') return a.name.localeCompare(b.name);
@@ -249,9 +253,29 @@ export function Settings({
                           </button>
                        </div>
                     </div>
+                     <div className="flex space-x-1 p-1 bg-[#0D1016] border-b border-[#2D333F]">
+                        <button 
+                           onClick={() => setActiveDetailTab('PARAMS')}
+                           className={cn(
+                              "flex-1 px-3 py-2 text-[10px] font-bold transition-all",
+                              activeDetailTab === 'PARAMS' ? "text-orange-400 border-b-2 border-orange-500 bg-orange-500/5" : "text-gray-500 hover:text-gray-300"
+                           )}
+                        >
+                           ANA PARAMETRELER
+                        </button>
+                        <button 
+                           onClick={() => setActiveDetailTab('VALVES')}
+                           className={cn(
+                              "flex-1 px-3 py-2 text-[10px] font-bold transition-all",
+                              activeDetailTab === 'VALVES' ? "text-blue-400 border-b-2 border-blue-500 bg-blue-500/5" : "text-gray-500 hover:text-gray-300"
+                           )}
+                        >
+                           VALF KALİBRASYONU
+                        </button>
+                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-                      {editingRecipe && (
+                     <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                      {editingRecipe && activeDetailTab === 'PARAMS' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                            <div className="col-span-2 space-y-2">
                               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Reçete Adı</label>
@@ -345,6 +369,53 @@ export function Settings({
                               />
                            </div>
                         </div>
+                      )}
+
+                      {editingRecipe && activeDetailTab === 'VALVES' && (
+                         <div className="space-y-4">
+                            <div className="bg-blue-500/5 border border-blue-500/10 p-3 rounded flex items-start gap-3 mb-4">
+                               <Info size={14} className="text-blue-400 shrink-0 mt-0.5" />
+                               <div className="text-[9px] text-gray-400 font-medium leading-relaxed italic">
+                                  Her bir valf için bu reçeteye özel dolum süresi (ms) belirleyebilirsiniz. Test butonu ile anlık çıktı alabilirsiniz.
+                               </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2">
+                               {data.valves.filter(v => v.enabled).map(valve => {
+                                  const currentDuration = editingRecipe.valveDurations?.[valve.id] || editingRecipe.fillTimeMs;
+                                  
+                                  return (
+                                    <div key={valve.id} className="bg-[#0D1016] border border-[#1F2937] p-3 rounded-lg flex items-center justify-between group hover:border-blue-500/50 transition-all">
+                                       <div className="flex items-center gap-3">
+                                          <div className={cn("w-2 h-2 rounded-full", valve.isOpen ? "bg-blue-500 animate-pulse" : "bg-gray-600")} />
+                                          <span className="text-[11px] font-bold text-gray-300 uppercase">{valve.name || `Vana ${valve.id}`}</span>
+                                       </div>
+                                       
+                                       <div className="flex items-center gap-2">
+                                          <div className="relative w-24">
+                                             <input 
+                                               type="number" 
+                                               value={currentDuration}
+                                               onChange={(e) => {
+                                                  const newDurations = { ...(editingRecipe.valveDurations || {}), [valve.id]: Number(e.target.value) };
+                                                  onUpdateRecipe(editingRecipe.id, { valveDurations: newDurations });
+                                               }}
+                                               className="w-full bg-[#1C2029] border border-[#374151] text-xs font-mono text-blue-400 px-2 py-1 rounded outline-none focus:border-blue-500 pr-6"
+                                             />
+                                             <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold text-gray-600">MS</span>
+                                          </div>
+                                          <button 
+                                            onClick={() => testValvePulse(valve.id, Number(currentDuration))}
+                                            className="bg-blue-900/40 border border-blue-800 text-blue-400 hover:bg-blue-800 p-1.5 rounded transition-all active:scale-90"
+                                          >
+                                            <Play size={12} />
+                                          </button>
+                                       </div>
+                                    </div>
+                                  );
+                               })}
+                            </div>
+                         </div>
                       )}
                     </div>
 

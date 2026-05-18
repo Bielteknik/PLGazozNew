@@ -18,11 +18,12 @@ interface OperatorControlProps {
   testValvePulse: (id: number, duration: number) => void;
   resetCounter: (target: 'input' | 'output', op?: 'inc' | 'dec' | 'reset') => void;
   onSelectRecipe: (id: string) => void;
+  startOperatorFill: () => void;
 }
 
 export function OperatorControl({ 
   data, setMode, onStartAutoCycle, operateGate, toggleValve, 
-  testValvePulse, resetCounter, onSelectRecipe 
+  testValvePulse, resetCounter, onSelectRecipe, startOperatorFill
 }: OperatorControlProps) {
   
   const activeRecipe = data?.recipes?.find(r => r.id === data?.config?.recipeId) || data?.recipes?.[0];
@@ -41,31 +42,37 @@ export function OperatorControl({
     setIsFilling(true);
     setFillProgress(0);
     
-    // Start timing
-    const duration = data.config.fillTimeMs || 3000;
-    const interval = 50;
-    let elapsed = 0;
-
-    // Toggle enabled valves
-    data.valves.filter(v => v.enabled).forEach(v => toggleValve(v.id));
-
-    const timer = setInterval(() => {
-      elapsed += interval;
-      setFillProgress((elapsed / duration) * 100);
-      
-      if (elapsed >= duration) {
-        clearInterval(timer);
-        setIsFilling(false);
-        setFillProgress(0);
-        // Close all open valves
-        data.valves.filter(v => v.isOpen).forEach(v => toggleValve(v.id));
-      }
-    }, interval);
+    // Start backend action
+    if (data.mode === 'MANUEL' || data.mode === 'BEKLEMEDE') {
+       setMode('BEKLEMEDE'); 
+    }
+    
+    // Trigger backend pulse sequence
+    startOperatorFill();
   };
+
+  // Progress effect only for UI feedback
+  useEffect(() => {
+    if (isFilling) {
+      const duration = data.config.fillTimeMs || 1000;
+      const interval = 50;
+      let elapsed = 0;
+      const timer = setInterval(() => {
+        elapsed += interval;
+        setFillProgress(Math.min((elapsed / duration) * 100, 100));
+        if (elapsed >= duration) {
+          clearInterval(timer);
+          setIsFilling(false);
+          setFillProgress(0);
+        }
+      }, interval);
+      return () => clearInterval(timer);
+    }
+  }, [isFilling, data.config.fillTimeMs]);
 
   return (
     <div className="flex flex-col h-full space-y-4 overflow-hidden">
-      
+
       {/* Top action bar - MODIFIED FOR OPERATOR CONTROL */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-[#151921] border border-[#374151] p-3 rounded shadow-lg flex-shrink-0 gap-4 md:gap-0">
         <div className="flex items-center gap-4">
@@ -425,7 +432,7 @@ export function OperatorControl({
               </div>
            </div>
 
-        </div>
+         </div>
 
       </div>
 

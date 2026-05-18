@@ -177,6 +177,10 @@ async def handle_action(sid, data):
         duration = payload.get('duration', 1000)
         asyncio.create_task(hw.pulse_valve(valve_id, duration))
 
+    elif action_type == 'START_OPERATOR_FILL':
+        # Operatör modunda tek seferlik dolum tetikle
+        asyncio.create_task(prod._trigger_filling_valves())
+
     elif action_type == 'TOGGLE_HARDWARE_STATUS':
         v_id = payload.get('id')
         valves = state.data.get("valves", [])

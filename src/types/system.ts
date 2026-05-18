@@ -126,6 +126,7 @@ export interface Recipe {
   settlingTimeMs: number;
   dripWaitTimeMs: number;
   description: string;
+  valveDurations?: Record<number, number>;
 }
 
 export interface SystemData {

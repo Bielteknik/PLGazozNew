@@ -29,9 +29,17 @@ class DatabaseManager:
                     settlingTimeMs INTEGER,
                     dripWaitTimeMs INTEGER,
                     description TEXT,
-                    active BOOLEAN
+                    active BOOLEAN,
+                    valveDurations TEXT
                 )
             ''')
+            
+            # Migration: valveDurations kolonu yoksa ekle
+            cursor.execute("PRAGMA table_info(recipes)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'valveDurations' not in columns:
+                print("[DB] Migrasyon: valveDurations kolonu ekleniyor...")
+                cursor.execute("ALTER TABLE recipes ADD COLUMN valveDurations TEXT DEFAULT '{}'")
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS cycle_history (
@@ -160,8 +168,8 @@ class DatabaseManager:
         for key, value in defaults.items():
             cursor.execute("INSERT OR REPLACE INTO system_state (key, value) VALUES (?, ?)", (key, json.dumps(value)))
             
-        cursor.execute("INSERT OR REPLACE INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                       ("RECIPE-1", "Standart Dolum", 250, 9, 1500, 1000, 500, "9 şişe standart dolum reçetesi", True))
+        cursor.execute("INSERT OR REPLACE INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active, valveDurations) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       ("RECIPE-1", "Standart Dolum", 250, 9, 1500, 1000, 500, "9 şişe standart dolum reçetesi", True, "{}"))
 
     def get_all_state(self):
         """Tüm system_state tablosunu bir sözlük olarak döner."""
@@ -190,15 +198,27 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM recipes")
-            return [dict(row) for row in cursor.fetchall()]
+            recipes = []
+            for row in cursor.fetchall():
+                r = dict(row)
+                if r.get('valveDurations'):
+                    try:
+                        r['valveDurations'] = json.loads(r['valveDurations'])
+                    except:
+                        r['valveDurations'] = {}
+                else:
+                    r['valveDurations'] = {}
+                recipes.append(r)
+            return recipes
 
     def add_recipe(self, r):
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            valve_durations = json.dumps(r.get('valveDurations', {}))
             cursor.execute('''
-                INSERT INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (r['id'], r['name'], r['volumeMl'], r['targetCount'], r['fillTimeMs'], r['settlingTimeMs'], r['dripWaitTimeMs'], r['description'], False))
+                INSERT INTO recipes (id, name, volumeMl, targetCount, fillTimeMs, settlingTimeMs, dripWaitTimeMs, description, active, valveDurations)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (r['id'], r['name'], r['volumeMl'], r['targetCount'], r['fillTimeMs'], r['settlingTimeMs'], r['dripWaitTimeMs'], r['description'], False, valve_durations))
             conn.commit()
 
     def remove_recipe(self, recipe_id):
@@ -211,6 +231,8 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             for key, value in updates.items():
+                if key == 'valveDurations':
+                    value = json.dumps(value)
                 cursor.execute(f"UPDATE recipes SET {key} = ? WHERE id = ?", (value, recipe_id))
             conn.commit()
 

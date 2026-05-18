@@ -48,6 +48,10 @@ class ProductionManager:
     async def run_flush_cycle(self):
         self.state.log("TAHLİYE: Otomatik şişe boşaltma başlatıldı.")
         self.hw.all_off()
+        
+        # Tahliye sırasında da valfleri (hava tahliyesi vb. için) tetikle
+        asyncio.create_task(self._trigger_filling_valves(is_flush=True))
+        
         self.hw.send_command("G2:400")
         while self.state.data.get("mode") == "TAHLIYE":
             in_count = self.state.data.get("inputCount", 0)
@@ -128,14 +132,9 @@ class ProductionManager:
             await asyncio.sleep(settle_ms / 1000.0)
 
             # ADIM 4: Dolum
-            self.state.log(f"Valfler açılıyor, dolum başladı ({fill_ms}ms)...")
-            for v in self.state.data.get("valves", []):
-                if v.get("enabled"):
-                    self.hw.control_valve(v["id"], True)
-            await asyncio.sleep(fill_ms / 1000.0)
-            for v in self.state.data.get("valves", []):
-                self.hw.control_valve(v["id"], False)
-            self.state.log("Dolum tamamlandı, valfler kapatıldı.")
+            self.state.log(f"Valfler açılıyor, dolum başladı...")
+            await self._trigger_filling_valves()
+            self.state.log("Dolum tamamlandı, tüm valf işlemleri bitti.")
 
             # ADIM 5: Damlatma beklemesi
             self.state.log(f"Damlatma bekleniyor ({drip_ms}ms)...")
@@ -143,6 +142,10 @@ class ProductionManager:
 
             # ADIM 6: Çıkış kapısını aç, şişeleri say
             self.state.log("Çıkış kapısı açılıyor, şişe çıkışı başladı...")
+            
+            # Tahliye valflerini (hava üfleme vb.) tetikle
+            asyncio.create_task(self._trigger_filling_valves(is_flush=True))
+            
             self.hw.control_gate(out_pin, 1)
             self.state.data["outputGate"]["isOpen"] = True
 
@@ -205,3 +208,37 @@ class ProductionManager:
             self.state.increment_input()
         else:
             self.state.increment_output()
+
+    async def _trigger_filling_valves(self, is_flush=False):
+        """
+        Tüm aktif valfleri reçeteye veya kendi özel sürelerine göre tetikler.
+        """
+        recipe_id = self.state.data["config"].get("recipeId")
+        recipe = next((r for r in self.state.data["recipes"] if r["id"] == recipe_id), None)
+        
+        default_fill_ms = recipe.get("fillTimeMs", 1000) if recipe else 1000
+        
+        valve_map = {}
+        # Reçete bazlı vana sürelerini al
+        recipe_valve_durations = recipe.get("valveDurations", {}) if recipe else {}
+        
+        for v in self.state.data.get("valves", []):
+            if v.get("enabled"):
+                v_id = v["id"]
+                # Öncelik Sırası:
+                # 1. Reçetedeki vana-özel süresi
+                # 2. Vananın kendi pulseDuration değeri
+                # 3. Reçetedeki genel fillTimeMs değeri
+                
+                duration = recipe_valve_durations.get(str(v_id)) or recipe_valve_durations.get(v_id)
+                
+                if not duration:
+                    duration = v.get("pulseDuration")
+                
+                if not duration or duration <= 0:
+                    duration = default_fill_ms
+                
+                valve_map[v_id] = duration
+        
+        if valve_map:
+            await self.hw.pulse_valves_concurrent(valve_map)
