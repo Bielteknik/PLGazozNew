@@ -1,0 +1,29 @@
+# PLGazoz Canlı Entegrasyon Görev Listesi
+
+- `[x]` Faz 1: Altyapı, SQLite Veritabanı & FastAPI Sunucu
+  - `[x]` `src/backend/requirements.txt` oluşturulması ve bağımlılıkların yüklenmesi
+  - `[x]` `src/backend/database.py` SQLite veritabanı şemasının kurulması ve seed verilerinin eklenmesi
+  - `[x]` `src/backend/main.py` FastAPI temel REST API ve WebSocket `/ws` telemetry yapısının kurulması
+- `[x]` Faz 2: Arduino Firmware Kodları
+  - `[x]` `arduino/RelayCard/RelayCard.ino` Nano 1 dinamik valf tetikleme yazılımının kodlanması
+  - `[x]` `arduino/SensorGate/SensorGate.ino` Nano 2 dinamik sensör (HC-SR04 dahil) ve kilit solenoid yazılımının kodlanması
+- `[x]` Faz 3: Seri Haberleşme & Dinamik Pin Yönlendirme (Serial Manager)
+  - `[x]` `src/backend/serial_manager.py` asenkron cihaz keşif (`WHOAMI`) ve port dinleyici yazılması
+  - `[x]` Pi 5 yerel GPIO pin kontrol desteğinin eklenmesi (`RPi.GPIO` entegrasyonu)
+  - `[x]` Sanal donanım (Mock Serial) test modunun eklenmesi
+- `[x]` Faz 4: HMI & Arayüz Bağlantısı
+  - `[x]` Arayüzün WebSocket üzerinden telemetry verisini dinleyecek şekilde güncellenmesi
+  - `[x]` Waveshare 10.1" ekrana göre buton dokunmatik ve yerleşim hassasiyetlerinin doğrulanması
+- `[x]` Faz 5: Arayüz Temizliği (Ölü/Kullanılmayan Kodların Silinmesi)
+  - `[x]` `useSystemSimulator.ts` içerisindeki kullanılmayan donanım/sensör/gate ekleme/silme fonksiyonlarının temizlenmesi
+  - `[x]` `App.tsx` içerisindeki destructuring ve prop atamalarının ölü kodlardan temizlenmesi
+  - `[x]` Genel derleme (Build) kontrolü ve son saha testleri
+- `[x]` Faz 6: Dinamik Port Yapılandırması ve Dökümanların Taşınması
+  - `[x]` `database_schema.md` ve `walkthrough.md` dökümanlarının `notes/` klasörüne kopyalanması
+  - `[x]` backend `serial_manager.py` dosyasına dinamik hot-reconnect desteğinin (`update_device_connection`) eklenmesi
+  - `[x]` backend `main.py` içindeki `/api/settings/hardware/devices` endpoint'ine dinamik hot-reconnect tetiklemesinin eklenmesi
+  - `[x]` frontend `src/types/system.ts` dosyasına `DeviceState` tanımının eklenmesi ve `SystemData`'ya bağlanması
+  - `[x]` frontend `src/hooks/useSystemSimulator.ts` dosyasına `devices` başlangıç durumunun eklenmesi
+  - `[x]` frontend `src/App.tsx` dosyasında `updateDeviceConfig` fonksiyonunun destructure edilip Settings bileşenine aktarılması
+  - `[x]` frontend `src/components/views/Settings.tsx` HARDWARE sekmesine mikrodenetleyici port/baudrate dinamik ayar kartının eklenmesi
+  - `[x]` Derleme kontrolü (`tsc --noEmit` ile başarıyla doğrulandı) ve çalışma zamanı doğrulamaları

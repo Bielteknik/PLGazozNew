@@ -1,0 +1,6 @@
+{
+  "name": "PalandökenGAZOZ",
+  "description": "8 Valf Dolum Başlıklı, Nano-Pi 5 UART Haberleşmeli ve Lazer Sensörlü Endüstriyel Gazoz Dolum PLC Otomasyonu",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
