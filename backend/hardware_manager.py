@@ -4,9 +4,24 @@ import time
 import os
 import asyncio
 
+# Dynamically import smbus / spidev for Pi 5 I2C and SPI
+try:
+    import smbus2 as smbus
+except ImportError:
+    try:
+        import smbus
+    except ImportError:
+        smbus = None
+
+try:
+    import spidev
+except ImportError:
+    spidev = None
+
 class HardwareManager:
     def __init__(self):
         self.serial_conns = {}  # {port: SerialInstance}
+        self.tcp_conns = {}     # {device_id: (reader, writer, addr)}
         self.port_to_id_map = {} # {port: 'GatesNano' or 'ValvesNano'}
         self.on_input_detected = None
         self.sensor_config = []
@@ -17,11 +32,191 @@ class HardwareManager:
         }
         
     def get_available_ports(self):
-        """Sadece ttyUSB ve ttyACM ile başlayan geçerli seri portları listeler."""
+        """USB (ttyUSB, ttyACM, COM) ve UART (ttyAMA, ttyS, serial) portlarını listeler."""
         ports = [p.device for p in serial.tools.list_ports.comports()]
-        # Sadece USB tabanlı olanları filtrele
-        filtered = [p for p in ports if "ttyUSB" in p or "ttyACM" in p]
+        
+        # Raspberry Pi üzerindeki standart UART/GPIO portlarını kontrol edip ekle
+        additional_paths = ["/dev/ttyAMA0", "/dev/serial0", "/dev/ttyS0", "/dev/ttyAMA10"]
+        for path in additional_paths:
+            if os.path.exists(path) and path not in ports:
+                ports.append(path)
+                
+        # USB tabanlı, Pi UART ve Windows COM portlarını filtrele
+        filtered = [p for p in ports if any(x in p for x in ["ttyUSB", "ttyACM", "ttyAMA", "ttyS", "serial", "COM"])]
         return sorted(filtered)
+
+    def scan_all_ports(self, baudrate=115200):
+        """Tüm seri portları, I2C yollarını ve SPI kanallarını tarayarak aktif cihazları döner."""
+        discovered = {}
+        
+        # 1. Seri Port Taraması (USB & UART)
+        discovered.update(self.scan_serial_ports(baudrate))
+        
+        # 2. I2C Cihaz Taraması
+        discovered.update(self.scan_i2c_bus())
+        
+        # 3. SPI Cihaz Taraması
+        discovered.update(self.scan_spi_bus())
+        
+        return discovered
+
+    def scan_serial_ports(self, baudrate=115200):
+        """Tüm kullanılabilir seri portları tarar, el sıkışma yapar ve cihazları döner."""
+        available = self.get_available_ports()
+        discovered = {}
+        for port in available:
+            if self.connect_to_port(port, baudrate):
+                device_id = self.port_to_id_map.get(port)
+                if device_id:
+                    discovered[port] = device_id
+        return discovered
+
+    def scan_i2c_bus(self, bus_id=1):
+        """I2C veri yolunu tarar ve yanıt veren adresleri (I2C:bus_id:addr) olarak tespit eder."""
+        discovered = {}
+        if smbus is None:
+            return discovered
+            
+        try:
+            bus = smbus.SMBus(bus_id)
+            for addr in range(0x03, 0x78):
+                try:
+                    # Yazma/okuma denemesi ile cihaz varlığını kontrol et
+                    bus.write_quick(addr)
+                    # Cihaz yanıt verdi! Şimdi kimliğini soralım (Komut: 0x99 IDENTIFY)
+                    bus.write_byte(addr, 0x99)
+                    time.sleep(0.05)
+                    # İsim oku (16 karakterlik tampon alan)
+                    name_bytes = []
+                    for _ in range(16):
+                        b = bus.read_byte(addr)
+                        if b == 0 or b == 255:
+                            break
+                        name_bytes.append(chr(b))
+                    device_id = "".join(name_bytes).strip()
+                    if device_id:
+                        port_str = f"I2C:{bus_id}:{hex(addr)}"
+                        discovered[port_str] = device_id
+                        self.port_to_id_map[port_str] = device_id
+                except Exception:
+                    pass
+            bus.close()
+        except Exception as e:
+            print(f"[Hardware I2C] Tarama hatası: {e}")
+        return discovered
+
+    def scan_spi_bus(self):
+        """SPI hatlarını tarar ve spidev üzerinden yanıt veren cihazları tespit eder."""
+        discovered = {}
+        if spidev is None:
+            return discovered
+            
+        # Pi üzerindeki yaygın SPI arayüzleri (bus, device)
+        spi_targets = [(0, 0), (0, 1), (1, 0), (1, 1)]
+        for bus, device in spi_targets:
+            port_str = f"SPI:{bus}.{device}"
+            if os.path.exists(f"/dev/spidev{bus}.{device}"):
+                try:
+                    spi = spidev.SpiDev()
+                    spi.open(bus, device)
+                    spi.max_speed_hz = 500000
+                    spi.mode = 0
+                    
+                    # IDENTIFY sorgusu gönder (Komut: ASCII 'I', 'D', '\n' + 13 adet boş dolgu)
+                    request = [ord('I'), ord('D'), ord('\n')] + [0]*13
+                    response = spi.xfer2(request)
+                    
+                    name_bytes = []
+                    for b in response:
+                        if b == 0 or b == 255:
+                            continue
+                        name_bytes.append(chr(b))
+                    device_id = "".join(name_bytes).strip()
+                    spi.close()
+                    
+                    if device_id:
+                        discovered[port_str] = device_id
+                        self.port_to_id_map[port_str] = device_id
+                except Exception:
+                    pass
+        return discovered
+
+    async def start_tcp_listener(self, port=1978):
+        print(f"[Hardware TCP] Soket dinleyicisi başlatılıyor (Port: {port})...")
+        try:
+            server = await asyncio.start_server(self.handle_tcp_client, '0.0.0.0', port)
+            async with server:
+                await server.serve_forever()
+        except asyncio.CancelledError:
+            print("[Hardware TCP] Soket dinleyicisi durduruldu.")
+        except Exception as e:
+            print(f"[Hardware TCP] Soket dinleyicisi başlatılamadı: {e}")
+
+    async def handle_tcp_client(self, reader, writer):
+        addr = writer.get_extra_info('peername')
+        print(f"[Hardware TCP] Yeni bağlantı: {addr}")
+        device_id = None
+        try:
+            # İlk satırı oku (tanıtım mesajı)
+            line_bytes = await reader.readline()
+            if not line_bytes:
+                return
+            line = line_bytes.decode('utf-8', errors='ignore').strip()
+            print(f"[Hardware TCP] Alınan tanıtım: '{line}'")
+            
+            # Tanıtım formatı: "ID:CihazAdi" veya doğrudan "CihazAdi" (Örn: "ID:ValvesNano" veya "ValvesNano")
+            if line.startswith("ID:"):
+                device_id = line.replace("ID:", "").strip()
+            else:
+                device_id = line.strip()
+                
+            if not device_id:
+                print(f"[Hardware TCP] Geçersiz tanıtım: '{line}'")
+                return
+                
+            # Bağlantıyı kaydet
+            self.tcp_conns[device_id] = (reader, writer, addr)
+            self.port_to_id_map[f"TCP:{device_id}"] = device_id
+            print(f"[Hardware TCP] {device_id} başarıyla bağlandı ({addr[0]}:{addr[1]})")
+            
+            # Bu soketten sürekli veri okuma döngüsü
+            while True:
+                line_bytes = await reader.readline()
+                if not line_bytes:
+                    break # Bağlantı koptu
+                
+                line = line_bytes.decode('utf-8', errors='ignore').strip()
+                if not line:
+                    continue
+                    
+                self.process_incoming_line(device_id, f"TCP:{device_id}", line)
+                
+        except Exception as e:
+            print(f"[Hardware TCP] Hata ({device_id or addr}): {e}")
+        finally:
+            if device_id:
+                self.close_tcp_connection(device_id)
+            else:
+                writer.close()
+
+    def close_tcp_connection(self, device_id):
+        conn = self.tcp_conns.pop(device_id, None)
+        if conn:
+            reader, writer, addr = conn
+            print(f"[Hardware TCP] Bağlantı sonlandırılıyor: {device_id} ({addr[0]}:{addr[1]})")
+            try:
+                writer.close()
+            except:
+                pass
+            port = f"TCP:{device_id}"
+            if port in self.port_to_id_map:
+                del self.port_to_id_map[port]
+
+    async def _drain_writer(self, writer):
+        try:
+            await writer.drain()
+        except:
+            pass
 
     def connect_to_port(self, port, baudrate=115200):
         """Porta bağlanır ve cihazın kimliğini sorgular (Handshake)."""
@@ -87,10 +282,31 @@ class HardwareManager:
         return False
 
     def is_port_online(self, port):
-        """Portun bağlı ve açık olup olmadığını kontrol eder."""
+        """Portun bağlı ve açık olup olmadığını kontrol eder (Serial, TCP, I2C ve SPI destekler)."""
+        if not port: return False
+        if port.startswith("TCP:"):
+            device_id = port.replace("TCP:", "")
+            return device_id in self.tcp_conns
+        elif port.startswith("I2C:"):
+            parts = port.split(":")
+            bus_id = int(parts[1])
+            addr = int(parts[2], 16)
+            if smbus is None: return False
+            try:
+                bus = smbus.SMBus(bus_id)
+                bus.write_quick(addr)
+                bus.close()
+                return True
+            except:
+                return False
+        elif port.startswith("SPI:"):
+            parts = port.split(":")[1].split(".")
+            bus_id = int(parts[0])
+            device_id = int(parts[1])
+            return os.path.exists(f"/dev/spidev{bus_id}.{device_id}")
+            
         conn = self.serial_conns.get(port)
         return conn is not None and conn.is_open
-
 
     def send_command(self, cmd, target_port=None):
         """
@@ -101,21 +317,60 @@ class HardwareManager:
         encoded_cmd = full_cmd.encode()
 
         if target_port:
-            conn = self.serial_conns.get(target_port)
-            if conn and conn.is_open:
-                try:
-                    conn.write(encoded_cmd)
-                except Exception as e:
-                    print(f"[Hardware] Yazma Hatası ({target_port}): {e}")
-                    # Kritik: Bağlantıyı kopar ki self-healing devreye girsin!
+            if target_port.startswith("TCP:"):
+                device_id = target_port.replace("TCP:", "")
+                conn = self.tcp_conns.get(device_id)
+                if conn:
+                    reader, writer, addr = conn
                     try:
-                        conn.close()
-                        del self.serial_conns[target_port]
-                        if target_port in self.port_to_id_map:
-                            del self.port_to_id_map[target_port]
-                    except: pass
+                        writer.write(encoded_cmd)
+                        asyncio.create_task(self._drain_writer(writer))
+                    except Exception as e:
+                        print(f"[Hardware] TCP Yazma Hatası ({device_id}): {e}")
+                        self.close_tcp_connection(device_id)
+            elif target_port.startswith("I2C:"):
+                parts = target_port.split(":")
+                bus_id = int(parts[1])
+                addr = int(parts[2], 16)
+                if smbus:
+                    try:
+                        bus = smbus.SMBus(bus_id)
+                        for char in full_cmd:
+                            bus.write_byte(addr, ord(char))
+                        bus.close()
+                    except Exception as e:
+                        print(f"[Hardware I2C] Yazma Hatası ({target_port}): {e}")
+            elif target_port.startswith("SPI:"):
+                parts = target_port.split(":")[1].split(".")
+                bus_id = int(parts[0])
+                device_id = int(parts[1])
+                if spidev:
+                    try:
+                        spi = spidev.SpiDev()
+                        spi.open(bus_id, device_id)
+                        spi.max_speed_hz = 500000
+                        spi.mode = 0
+                        payload = [ord(c) for c in full_cmd]
+                        spi.xfer2(payload)
+                        spi.close()
+                    except Exception as e:
+                        print(f"[Hardware SPI] Yazma Hatası ({target_port}): {e}")
+            else:
+                conn = self.serial_conns.get(target_port)
+                if conn and conn.is_open:
+                    try:
+                        conn.write(encoded_cmd)
+                    except Exception as e:
+                        print(f"[Hardware] Yazma Hatası ({target_port}): {e}")
+                        # Kritik: Bağlantıyı kopar ki self-healing devreye girsin!
+                        try:
+                            conn.close()
+                            del self.serial_conns[target_port]
+                            if target_port in self.port_to_id_map:
+                                del self.port_to_id_map[target_port]
+                        except: pass
         else:
-            # Broadcast to all
+            # Broadcast to all serial
             for port, conn in list(self.serial_conns.items()):
                 if conn.is_open:
                     try:
@@ -128,6 +383,44 @@ class HardwareManager:
                             if port in self.port_to_id_map:
                                 del self.port_to_id_map[port]
                         except: pass
+            # Broadcast to all TCP
+            for device_id, conn in list(self.tcp_conns.items()):
+                reader, writer, addr = conn
+                try:
+                    writer.write(encoded_cmd)
+                    asyncio.create_task(self._drain_writer(writer))
+                except Exception as e:
+                    print(f"[Hardware] TCP Yazma Hatası ({device_id}): {e}")
+                    self.close_tcp_connection(device_id)
+            # Broadcast to all active I2C configured devices
+            for port, device_id in list(self.port_to_id_map.items()):
+                if port.startswith("I2C:") and smbus:
+                    parts = port.split(":")
+                    bus_id = int(parts[1])
+                    addr = int(parts[2], 16)
+                    try:
+                        bus = smbus.SMBus(bus_id)
+                        for char in full_cmd:
+                            bus.write_byte(addr, ord(char))
+                        bus.close()
+                    except Exception:
+                        pass
+            # Broadcast to all active SPI configured devices
+            for port, device_id in list(self.port_to_id_map.items()):
+                if port.startswith("SPI:") and spidev:
+                    parts = port.split(":")[1].split(".")
+                    bus_id = int(parts[0])
+                    device_id = int(parts[1])
+                    try:
+                        spi = spidev.SpiDev()
+                        spi.open(bus_id, device_id)
+                        spi.max_speed_hz = 500000
+                        spi.mode = 0
+                        payload = [ord(c) for c in full_cmd]
+                        spi.xfer2(payload)
+                        spi.close()
+                    except Exception:
+                        pass
 
     def apply_config(self, nanos, sensors):
         """Arayüzden gelen tüm donanım yapılandırmasını anında uygular."""
@@ -185,6 +478,7 @@ class HardwareManager:
 
     def update(self):
         """Tüm açık portları tarar ve beklemedeki TÜM verileri hızlıca işler."""
+        # 1. Seri Haberleşme Okuması
         for port, conn in list(self.serial_conns.items()):
             try:
                 if not conn.is_open: continue
@@ -197,35 +491,97 @@ class HardwareManager:
                     line = line_bytes.decode('utf-8', errors='ignore').strip()
                     if not line: continue
                     
-                    # ID formatı kontrolü: "GatesNano:P1:IN"
-                    if ":" in line:
-                        parts = line.split(":")
-                        device_id = parts[0]
-                        payload = ":".join(parts[1:])
-                        
-                        if device_id in ["GatesNano", "ValvesNano"]:
-                            if "P1:IN" in payload: 
-                                if self.on_input_detected: self.on_input_detected(device_id, "IN")
-                            elif "P1:OUT" in payload:
-                                if self.on_input_detected: self.on_input_detected(device_id, "OUT")
-                            elif "ACK:" in payload:
-                                print(f"[Hardware] {device_id} Onay: {payload}")
-                            elif "STATUS:" in payload:
-                                status = payload.replace("STATUS:", "").strip()
-                                self.device_status[device_id] = status
-                                print(f"[Hardware] {device_id} Durumu: {status}")
-                            elif "DONE:" in payload:
-                                self.device_status[device_id] = "READY"
-                                print(f"[Hardware] {device_id} İşlem Tamamlandı.")
-                        elif line.startswith("ID:"):
-                            new_id = line.replace("ID:", "").strip()
-                            if new_id in ["GatesNano", "ValvesNano"]:
-                                self.port_to_id_map[port] = new_id
-                                self.device_status[new_id] = "READY"
-                                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
+                    device_id = self.port_to_id_map.get(port)
+                    self.process_incoming_line(device_id, port, line)
             except Exception as e:
                 if "outputCount" not in str(e):
                     print(f"[Hardware] Okuma Uyarısı ({port}): {e}")
+
+        # 2. I2C Cihazlarından Veri Okuma (Master Polling)
+        if smbus:
+            for port, device_id in list(self.port_to_id_map.items()):
+                if port.startswith("I2C:"):
+                    parts = port.split(":")
+                    bus_id = int(parts[1])
+                    addr = int(parts[2], 16)
+                    try:
+                        bus = smbus.SMBus(bus_id)
+                        line_bytes = []
+                        for _ in range(32):
+                            b = bus.read_byte(addr)
+                            if b == 0 or b == 255 or b == ord('\n'):
+                                if b == ord('\n'):
+                                    line = "".join(line_bytes).strip()
+                                    if line:
+                                        self.process_incoming_line(device_id, port, line)
+                                break
+                            line_bytes.append(chr(b))
+                        bus.close()
+                    except Exception:
+                        pass
+
+        # 3. SPI Cihazlarından Veri Okuma (Master Polling)
+        if spidev:
+            for port, device_id in list(self.port_to_id_map.items()):
+                if port.startswith("SPI:"):
+                    parts = port.split(":")[1].split(".")
+                    bus_id = int(parts[0])
+                    device_id_val = int(parts[1])
+                    try:
+                        spi = spidev.SpiDev()
+                        spi.open(bus_id, device_id_val)
+                        spi.max_speed_hz = 500000
+                        spi.mode = 0
+                        response = spi.readbytes(32)
+                        spi.close()
+                        
+                        line_bytes = []
+                        for b in response:
+                            if b == 0 or b == 255 or b == ord('\n'):
+                                if b == ord('\n'):
+                                    line = "".join(line_bytes).strip()
+                                    if line:
+                                        self.process_incoming_line(device_id, port, line)
+                                break
+                            line_bytes.append(chr(b))
+                    except Exception:
+                        pass
+
+    def process_incoming_line(self, device_id, port, line):
+        """Seri veya TCP soket üzerinden gelen tek bir satırı işler."""
+        try:
+            if ":" in line:
+                parts = line.split(":")
+                first_part = parts[0]
+                
+                # Eğer ilk kısım bilinen bir cihaz değilse ve cihaz ID'si dışarıdan verilmişse, device_id önekleyelim
+                if first_part not in ["GatesNano", "ValvesNano"] and not first_part.endswith("Nano") and device_id:
+                    msg_device_id = device_id
+                    payload = line
+                else:
+                    msg_device_id = first_part
+                    payload = ":".join(parts[1:])
+                
+                if "P1:IN" in payload: 
+                    if self.on_input_detected: self.on_input_detected(msg_device_id, "IN")
+                elif "P1:OUT" in payload:
+                    if self.on_input_detected: self.on_input_detected(msg_device_id, "OUT")
+                elif "ACK:" in payload:
+                    print(f"[Hardware] {msg_device_id} Onay: {payload}")
+                elif "STATUS:" in payload:
+                    status = payload.replace("STATUS:", "").strip()
+                    self.device_status[msg_device_id] = status
+                    print(f"[Hardware] {msg_device_id} Durumu: {status}")
+                elif "DONE:" in payload:
+                    self.device_status[msg_device_id] = "READY"
+                    print(f"[Hardware] {msg_device_id} İşlem Tamamlandı.")
+            elif line.startswith("ID:"):
+                new_id = line.replace("ID:", "").strip()
+                self.port_to_id_map[port] = new_id
+                self.device_status[new_id] = "READY"
+                print(f"[Hardware] Otomatik Tanımlama: {port} -> {new_id}")
+        except Exception as e:
+            print(f"[Hardware] Hata (Veri İşleme): {e}")
 
     def control_valve(self, valve_id, state):
         """ValvesNano üzerinden vana kontrolü yapar. valve_id: 10-18"""

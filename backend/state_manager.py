@@ -22,7 +22,8 @@ class StateManager:
             "recipes": [],
             "valves": [],
             "sensors": [],
-            "nanos": []
+            "nanos": [],
+            "discoveredNanos": []
         }
         self.last_hw_search_time = 0 
         

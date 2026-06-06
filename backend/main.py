@@ -52,12 +52,14 @@ async def lifespan(app: FastAPI):
     # Döngüleri Başlat
     b_task = asyncio.create_task(broadcast_loop())
     p_task = asyncio.create_task(prod.run_loop())
+    tcp_task = asyncio.create_task(hw.start_tcp_listener(1978))
     
     yield
     
     # Kapanış
     b_task.cancel()
     p_task.cancel()
+    tcp_task.cancel()
     hw.cleanup()
 
 # --- Altyapı ---
@@ -429,37 +431,80 @@ async def broadcast_loop():
                 nanos.append({"id": eid, "name": "Kilit ve Sensörler" if eid == "GatesNano" else "Valf Kontrol", "port": None, "status": "OFFLINE", "baudRate": 115200})
                 state.data["nanos"] = nanos
 
-        initial_nano_count = len(nanos)
+        # --- Donanım Tarama ve Otonom Eşleştirme ---
+        now = time.time()
+        should_scan = (now - state.last_hw_search_time) > 10
         
-        # 1. Temizlik: Sadece meşru donanımları tut (Hayaletleri sil)
-        nanos = [n for n in nanos if n['id'] in ['GatesNano', 'ValvesNano']]
-        if len(nanos) != initial_nano_count:
-            print(f"[Auto-Clean] {initial_nano_count - len(nanos)} adet hayalet donanım silindi.")
-            db.save_state("nanos", nanos)
-            state.data["nanos"] = nanos
-
+        # 1. Cihazları Tara (Aynı anda tüm portları tarar)
+        if should_scan:
+            state.last_hw_search_time = now
+            print("[Hardware] Genel port taraması başlatılıyor...")
+            # to_thread kullanarak event loop'u bloke etmeyelim
+            discovered_serial = await asyncio.to_thread(hw.scan_all_ports)
+            
+            # TCP cihazları da ekleyelim
+            active_devices = {}
+            for dev_id in list(hw.tcp_conns.keys()):
+                active_devices[f"TCP:{dev_id}"] = dev_id
+            active_devices.update(discovered_serial)
+            
+            # Bulunan tüm cihazları işle
+            discovered_nanos = []
+            active_alerts = state.data.setdefault("activeAlerts", [])
+            
+            for port, device_id in active_devices.items():
+                configured_nano = next((n for n in nanos if n['id'] == device_id), None)
+                if configured_nano:
+                    # Tanımlı cihaz eşleşti, portunu güncelle ve kaydet
+                    if configured_nano.get('port') != port:
+                        configured_nano['port'] = port
+                        print(f"[Hardware] {device_id} cihazı {port} portunda eşleşti.")
+                        db.save_state("nanos", nanos)
+                else:
+                    # Tanımlı değilse keşfedilenlere ekle
+                    discovered_nanos.append({
+                        "id": device_id,
+                        "port": port,
+                        "status": "DISCOVERED",
+                        "name": device_id,
+                        "pingMs": 0,
+                        "baudRate": 115200
+                    })
+                    
+                    # Operatör Uyarısı (Alert)
+                    alert_id = f'ALR-HW-{device_id}'
+                    if not any(a['id'] == alert_id for a in active_alerts):
+                        new_alert = {
+                            'id': alert_id,
+                            'code': 'INFO_NEW_HARDWARE',
+                            'severity': 'WARNING',
+                            'message': f"Yeni donanım bulundu: '{device_id}' ({port})",
+                            'suggestion': 'Lütfen donanım ayarlarından bu cihazı tanımlayın ve kaydedin.',
+                            'timestamp': time.time(),
+                            'resolved': False
+                        }
+                        active_alerts.insert(0, new_alert)
+                        state.log(f"Yeni donanım bulundu: {device_id} ({port})")
+            
+            state.data["discoveredNanos"] = discovered_nanos
+            
+            # Artık bağlı olmayan veya tanımlanmış cihazların alertlerini temizle
+            for alert in list(active_alerts):
+                if alert.get('code') == 'INFO_NEW_HARDWARE':
+                    dev_id = alert['id'].replace('ALR-HW-', '')
+                    # Eğer bu cihaz artık tanımlanmışsa veya artık bağlı değilse, uyarısını kaldır
+                    if any(n['id'] == dev_id for n in nanos) or not any(port_id == dev_id for port_id in active_devices.values()):
+                        try:
+                            active_alerts.remove(alert)
+                        except: pass
+                        
+        # 2. Aktif durumları kontrol et
         for n in nanos:
             port = n.get("port")
             is_online = hw.is_port_online(port) if port else False
-            
-            if not is_online:
-                # Sadece 10 saniyede bir yeni tarama yap (Sistemi bloke etmemek için)
-                now = time.time()
-                if (now - state.last_hw_search_time) > 10:
-                    state.last_hw_search_time = now
-                    print(f"[Self-Healing] {n['id']} aranıyor...")
-                    if hw.find_and_connect(n['id']):
-                        # Yeni portu kaydet
-                        for p, d_id in hw.port_to_id_map.items():
-                            if d_id == n['id']:
-                                n['port'] = p
-                                print(f"[Self-Healing] {n['id']} bağlandı: {p}")
-                                break
-                        is_online = True
-                
             n["status"] = "ONLINE" if is_online else "OFFLINE"
-                
-            # 2. Otonom Eşleştirme & Kalıcı Kayıt
+            
+            # Otonom Eşleştirme & Kalıcı Kayıt (GatesNano ve ValvesNano için uyumluluk)
             if is_online:
                 if n['id'] == 'ValvesNano':
                     valves_updated = False
@@ -473,7 +518,6 @@ async def broadcast_loop():
                 
                 elif n['id'] == 'GatesNano':
                     gates_updated = False
-                    # Sensörleri Raspberry Pi moduna geçir (tip korunur)
                     for s in state.data.get("sensors", []):
                         if s.get("device") != "RASPI":
                             original = s.get("type", "INPUT")
@@ -481,7 +525,6 @@ async def broadcast_loop():
                             s["type"] = original
                             gates_updated = True
                     
-                    # Kilitleri bağla
                     if state.data.get("inputGate", {}).get("nanoId") != "GatesNano":
                         state.data["inputGate"]["nanoId"] = "GatesNano"
                         gates_updated = True
@@ -494,11 +537,10 @@ async def broadcast_loop():
                         db.save_state("sensors", state.data["sensors"])
                         db.save_state("inputGate", state.data["inputGate"])
                         db.save_state("outputGate", state.data["outputGate"])
-                        # Donanıma yeni sensör modunu bildir!
                         hw.apply_config(state.data["nanos"], state.data["sensors"])
         
         # --- Durum Temizliği (Frontend Çökme Koruması) ---
-        for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts", "extraGates"]:
+        for key in ["nanos", "valves", "sensors", "recipes", "terminalLogs", "cycleHistory", "activeAlerts", "extraGates", "discoveredNanos"]:
             if key not in state.data or state.data[key] is None:
                 state.data[key] = []
         

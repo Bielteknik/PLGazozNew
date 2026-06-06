@@ -97,7 +97,17 @@ export function useSocketState() {
     removeGate: (id: string) => emitAction('REMOVE_GATE', { id }),
     toggleExtraGateEnabled: (id: string) => emitAction('TOGGLE_GATE_ENABLED', { id }),
     operateExtraGate: (id: string) => emitAction('OPERATE_EXTRA_GATE', { id }),
-    addNano: () => emitAction('ADD_HARDWARE', { nano: { id: `NANO-${Date.now()}`, name: 'Yeni Nano', port: '/dev/ttyUSB0', status: 'OFFLINE', pingMs: 0, baudRate: 115200 } }),
+    addNano: (customNano?: Partial<NanoState>) => {
+      const defaultNano = {
+        id: `NANO-${Date.now()}`,
+        name: 'Yeni Nano',
+        port: '/dev/ttyUSB0',
+        status: 'OFFLINE' as const,
+        pingMs: 0,
+        baudRate: 115200
+      };
+      emitAction('ADD_HARDWARE', { nano: { ...defaultNano, ...customNano } });
+    },
     removeNano: (id: string) => emitAction('REMOVE_HARDWARE', { id }),
     resetCounter: (target: 'input' | 'output', op: 'inc' | 'dec' | 'reset' = 'reset') => emitAction('MANAGE_COUNTER', { target, op }),
     testValvePulse: (id: number, duration: number) => emitAction('TEST_VALVE_PULSE', { id, duration }),

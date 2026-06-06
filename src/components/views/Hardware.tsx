@@ -25,7 +25,7 @@ interface HardwareProps {
   onAddGate?: () => void;
   onRemoveGate?: (id: string) => void;
   onToggleExtraGateEnabled?: (id: string) => void;
-  onAddNano: () => void;
+  onAddNano: (customNano?: any) => void;
   onRemoveNano: (id: string) => void;
 }
 
@@ -184,13 +184,39 @@ export function Hardware({ socket, data, onAddHardware, onRemoveHardware, onTogg
 
       <div className="flex-1 overflow-hidden">
         {activeTab === 'NANOS' && (
-        <div className="bg-[#151921] border border-[#2D333F] rounded p-4">
-          <div className="flex justify-between items-center mb-4 border-b border-[#374151] pb-2">
+        <div className="bg-[#151921] border border-[#2D333F] rounded p-4 space-y-4">
+          {/* Keşfedilen Donanımlar */}
+          {data.discoveredNanos && data.discoveredNanos.length > 0 && (
+             <div className="bg-[#1e1b4b]/20 border border-[#312e81]/40 p-3 rounded mb-2">
+                <h4 className="text-[10px] uppercase font-bold text-indigo-400 mb-3 flex items-center gap-1.5">
+                   <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                   Keşfedilen Yeni Donanımlar ({data.discoveredNanos.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                   {data.discoveredNanos.map(dn => (
+                      <div key={dn.id} className="bg-[#0D1016] border border-indigo-500/30 p-3 rounded flex items-center justify-between hover:border-indigo-500/60 transition-all">
+                         <div className="flex flex-col">
+                            <span className="text-xs font-bold text-indigo-300 font-mono">{dn.id}</span>
+                            <span className="text-[9px] text-gray-500 mt-0.5">{dn.port}</span>
+                         </div>
+                         <button
+                            onClick={() => onAddNano({ id: dn.id, name: dn.id, port: dn.port, status: 'ONLINE', baudRate: 115200 })}
+                            className="bg-indigo-900/40 border border-indigo-700 hover:bg-indigo-800 text-indigo-300 text-[9px] font-bold px-2.5 py-1 rounded transition-colors active:scale-95"
+                         >
+                            SİSTEME KAYDET & EKLE
+                         </button>
+                      </div>
+                   ))}
+                </div>
+             </div>
+          )}
+
+          <div className="flex justify-between items-center border-b border-[#374151] pb-2">
             <h3 className="text-[11px] uppercase font-bold text-gray-300 border-l-2 border-indigo-500 pl-2 flex items-center">
               <Link className="mr-2 text-gray-500" size={14} /> Mikrodenetleyici Bağlantı Ayarları
             </h3>
             <button 
-               onClick={onAddNano}
+               onClick={() => onAddNano()}
                disabled={data.mode === 'OTOMATİK'}
                className="flex items-center space-x-1 bg-[#1e1b4b] border border-[#312e81] hover:bg-[#312e81] text-[#a5b4fc] px-2 py-1 rounded font-bold disabled:opacity-50 text-[10px]"
             >

@@ -162,4 +162,5 @@ export interface SystemData {
   stopAfterCycleRequested: boolean;
   activePrompt: 'BOTTLE_CHECK' | 'COUNT_MISMATCH' | null;
   promptData?: { inputCount: number; outputCount: number };
+  discoveredNanos?: NanoState[];
 }
